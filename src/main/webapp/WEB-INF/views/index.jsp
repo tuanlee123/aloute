@@ -2,17 +2,17 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <title>Mạng Xã Hội ALOUTE</title>
-    <!-- Nhúng nhanh Bootstrap 5 CDN -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Bảng tin</title>
 </head>
-<body class="bg-light">
-    <div class="container text-center py-5">
-        <div class="card shadow-sm p-4">
-            <h1 class="text-primary fw-bold">ALOUTE Social Network</h1>
-            <p class="text-muted">Khởi tạo nền tảng Spring Boot + JSP + SiteMesh thành công!</p>
-            <button class="btn btn-primary px-4">Bắt đầu khám phá</button>
+<body>
+    <div class="card shadow-sm border-0 mb-3">
+        <div class="card-body">
+            <h5 class="card-title fw-bold">Chào mừng đến với ALOUTE!</h5>
+            <p class="card-text text-muted">Layout Decorator SiteMesh 3 đã hoạt động chuẩn xác.</p>
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary"><i class="bi bi-pencil-square me-1"></i> Tạo bài viết</button>
+                <button class="btn btn-outline-secondary"><i class="bi bi-image me-1"></i> Đăng ảnh</button>
+            </div>
         </div>
     </div>
 </body>
