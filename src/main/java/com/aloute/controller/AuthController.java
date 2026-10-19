@@ -95,21 +95,18 @@ public class AuthController {
         return "redirect:/login";
     }
 
-    // --- 4. QUÊN MẬT KHẨU ---
+ // --- 4. QUÊN MẬT KHẨU ---
     @GetMapping("/forgot-password")
     public String showForgotPasswordForm() {
         return "auth/forgot-password";
     }
 
+    // CHỈ GIỮ LẠI ĐÚNG 1 HÀM NÀY (xóa hàm processForgotPassword cũ có chứa Model model)
     @PostMapping("/forgot-password")
-    public String processForgotPassword(@RequestParam("email") String email, Model model) {
-        try {
-            authService.sendForgotPasswordOtp(email);
-            return "redirect:/reset-password?email=" + email;
-        } catch (IllegalArgumentException e) {
-            model.addAttribute("error", e.getMessage());
-            return "auth/forgot-password";
-        }
+    public String processForgotPassword(@RequestParam("email") String email) {
+        authService.sendForgotPasswordOtp(email);
+        // Luôn chuyển tiếp sang trang reset-password dù email có tồn tại hay không (chống dò email)
+        return "redirect:/reset-password?email=" + email;
     }
 
     @GetMapping("/reset-password")
@@ -130,4 +127,5 @@ public class AuthController {
             return "auth/reset-password";
         }
     }
+    
 }

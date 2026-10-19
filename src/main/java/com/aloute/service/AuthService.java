@@ -25,9 +25,22 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
 
+    private static final int MAX_FAILED_ATTEMPTS = 5;
+    private static final long LOCK_TIME_DURATION_MINUTES = 15;
+
     // Sinh mã OTP 6 chữ số ngẫu nhiên
     private String generateOtp() {
         return String.valueOf(100000 + new Random().nextInt(900000));
+    }
+
+    // Kiểm tra chính sách mật khẩu: 8-16 ký tự, không dấu tiếng Việt, không khoảng trắng
+    private void validatePasswordPolicy(String password) {
+        if (password == null || password.length() < 8 || password.length() > 16) {
+            throw new IllegalArgumentException("Mật khẩu phải có độ dài từ 8 đến 16 ký tự!");
+        }
+        if (!password.matches("^[\\x21-\\x7E]+$")) {
+            throw new IllegalArgumentException("Mật khẩu không được chứa dấu tiếng Việt hoặc khoảng trắng!");
+        }
     }
 
     // 1. ĐĂNG KÝ VÀ GỬI OTP KÍCH HOẠT
@@ -35,10 +48,14 @@ public class AuthService {
         if (!dto.getPassword().equals(dto.getConfirmPassword())) {
             throw new IllegalArgumentException("Mật khẩu xác nhận không khớp!");
         }
-        if (userRepository.existsByUsername(dto.getUsername())) {
+
+        // Ràng buộc chính sách mật khẩu phía Backend
+        validatePasswordPolicy(dto.getPassword());
+
+        if (userRepository.existsByUsername(dto.getUsername().trim())) {
             throw new IllegalArgumentException("Tên đăng nhập đã tồn tại!");
         }
-        if (userRepository.existsByEmail(dto.getEmail())) {
+        if (userRepository.existsByEmail(dto.getEmail().trim().toLowerCase())) {
             throw new IllegalArgumentException("Email đã được sử dụng!");
         }
 
@@ -54,6 +71,7 @@ public class AuthService {
                 .email(dto.getEmail().trim().toLowerCase())
                 .avatar("https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg")
                 .active(false) // Chưa kích hoạt tài khoản
+                .failedAttempt(0)
                 .otpCode(otp)
                 .otpExpiryTime(LocalDateTime.now().plusMinutes(5)) // Hiệu lực 5 phút
                 .roles(Set.of(userRole))
@@ -67,7 +85,7 @@ public class AuthService {
 
     // 2. KÍCH HOẠT TÀI KHOẢN QUA OTP
     public void verifyAccount(String email, String otp) {
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmail(email.trim().toLowerCase())
                 .orElseThrow(() -> new IllegalArgumentException("Email không tồn tại!"));
 
         if (Boolean.TRUE.equals(user.getActive())) {
@@ -83,12 +101,12 @@ public class AuthService {
         user.setActive(true);
         user.setOtpCode(null);
         user.setOtpExpiryTime(null);
-        userRepository.save(user);
+        userRepository.saveAndFlush(user);
     }
 
     // Gửi lại mã kích hoạt
     public void resendActivationOtp(String email) {
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmail(email.trim().toLowerCase())
                 .orElseThrow(() -> new IllegalArgumentException("Email không tồn tại!"));
 
         if (Boolean.TRUE.equals(user.getActive())) {
@@ -98,16 +116,17 @@ public class AuthService {
         String otp = generateOtp();
         user.setOtpCode(otp);
         user.setOtpExpiryTime(LocalDateTime.now().plusMinutes(5));
-        userRepository.save(user);
+        userRepository.saveAndFlush(user);
 
         emailService.sendOtpEmail(user.getEmail(), otp, "Gửi lại mã kích hoạt tài khoản", "kích hoạt tài khoản");
     }
 
-    // 3. ĐĂNG NHẬP
+    // 3. ĐĂNG NHẬP (CÓ ĐẾM SỐ LẦN SAI & KHÓA 15 PHÚT)
     public User login(LoginDTO dto) {
-        Optional<User> userOpt = userRepository.findByUsername(dto.getUsernameOrEmail());
+        String loginId = dto.getUsernameOrEmail().trim();
+        Optional<User> userOpt = userRepository.findByUsername(loginId);
         if (userOpt.isEmpty()) {
-            userOpt = userRepository.findByEmail(dto.getUsernameOrEmail());
+            userOpt = userRepository.findByEmail(loginId.toLowerCase());
         }
 
         if (userOpt.isEmpty()) {
@@ -117,27 +136,62 @@ public class AuthService {
         User user = userOpt.get();
 
         if (Boolean.FALSE.equals(user.getActive())) {
-            throw new IllegalArgumentException("Tài khoản chưa được kích hoạt hoặc đã bị khóa!");
+            throw new IllegalArgumentException("Tài khoản chưa được kích hoạt qua mã OTP hoặc đã bị khóa!");
         }
 
+        // Kiểm tra xem tài khoản có đang bị tạm khóa không
+        if (user.getLockTime() != null) {
+            LocalDateTime unlockTime = user.getLockTime().plusMinutes(LOCK_TIME_DURATION_MINUTES);
+            if (LocalDateTime.now().isBefore(unlockTime)) {
+                long minutesLeft = java.time.Duration.between(LocalDateTime.now(), unlockTime).toMinutes() + 1;
+                throw new IllegalArgumentException("Tài khoản đã bị tạm khóa do nhập sai quá nhiều lần. Vui lòng thử lại sau " + minutesLeft + " phút!");
+            } else {
+                // Đã hết 15 phút -> Mở khóa tự động
+                user.setLockTime(null);
+                user.setFailedAttempt(0);
+                userRepository.saveAndFlush(user);
+            }
+        }
+
+        // Kiểm tra mật khẩu
         if (!passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
-            throw new IllegalArgumentException("Tài khoản hoặc mật khẩu không chính xác!");
+            int currentFailed = (user.getFailedAttempt() == null ? 0 : user.getFailedAttempt()) + 1;
+            user.setFailedAttempt(currentFailed);
+
+            if (currentFailed >= MAX_FAILED_ATTEMPTS) {
+                user.setLockTime(LocalDateTime.now());
+                userRepository.saveAndFlush(user);
+                throw new IllegalArgumentException("Bạn đã nhập sai mật khẩu 5 lần. Tài khoản bị tạm khóa trong 15 phút!");
+            } else {
+                userRepository.saveAndFlush(user);
+                int attemptsLeft = MAX_FAILED_ATTEMPTS - currentFailed;
+                throw new IllegalArgumentException("Mật khẩu không chính xác! Bạn còn " + attemptsLeft + " lần thử trước khi bị khóa tài khoản.");
+            }
+        }
+
+        // Đăng nhập thành công -> Đặt số lần sai về 0
+        if (user.getFailedAttempt() != null && user.getFailedAttempt() > 0) {
+            user.setFailedAttempt(0);
+            user.setLockTime(null);
+            userRepository.saveAndFlush(user);
         }
 
         return user;
     }
 
-    // 4. QUÊN MẬT KHẨU - GỬI MÃ OTP
+    // 4. QUÊN MẬT KHẨU - GỬI MÃ OTP (CHỐNG DÒ QUÉT EMAIL)
     public void sendForgotPasswordOtp(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tài khoản với email này!"));
+        Optional<User> userOpt = userRepository.findByEmail(email.trim().toLowerCase());
 
-        String otp = generateOtp();
-        user.setOtpCode(otp);
-        user.setOtpExpiryTime(LocalDateTime.now().plusMinutes(5));
-        userRepository.save(user);
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            String otp = generateOtp();
+            user.setOtpCode(otp);
+            user.setOtpExpiryTime(LocalDateTime.now().plusMinutes(5));
+            userRepository.saveAndFlush(user);
 
-        emailService.sendOtpEmail(user.getEmail(), otp, "Mã xác thực đặt lại mật khẩu", "đặt lại mật khẩu");
+            emailService.sendOtpEmail(user.getEmail(), otp, "Mã xác thực đặt lại mật khẩu", "đặt lại mật khẩu");
+        }
     }
 
     // 5. ĐẶT LẠI MẬT KHẨU VỚI OTP
@@ -146,7 +200,10 @@ public class AuthService {
             throw new IllegalArgumentException("Mật khẩu xác nhận không khớp!");
         }
 
-        User user = userRepository.findByEmail(dto.getEmail())
+        // Ràng buộc chính sách mật khẩu phía Backend
+        validatePasswordPolicy(dto.getNewPassword());
+
+        User user = userRepository.findByEmail(dto.getEmail().trim().toLowerCase())
                 .orElseThrow(() -> new IllegalArgumentException("Email không tồn tại!"));
 
         if (user.getOtpCode() == null || !user.getOtpCode().equals(dto.getOtp().trim())) {
@@ -159,6 +216,11 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(dto.getNewPassword()));
         user.setOtpCode(null);
         user.setOtpExpiryTime(null);
-        userRepository.save(user);
+
+        // Mở khóa tài khoản ngay lập tức khi xác thực đổi mật khẩu thành công
+        user.setLockTime(null);
+        user.setFailedAttempt(0);
+
+        userRepository.saveAndFlush(user);
     }
 }
