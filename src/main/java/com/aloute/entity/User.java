@@ -22,6 +22,11 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(length = 6)
+    private String otpCode;
+
+    private LocalDateTime otpExpiryTime;
+    
     @Column(nullable = false, unique = true, length = 50)
     private String username;
 

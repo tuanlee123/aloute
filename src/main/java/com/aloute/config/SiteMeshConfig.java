@@ -17,14 +17,24 @@ public class SiteMeshConfig {
             protected void applyCustomConfiguration(SiteMeshFilterBuilder builder) {
                 // Chỉ khai báo tên file "main.jsp"
                 // SiteMesh tự động nối thành: /WEB-INF/decorators/main.jsp
-                builder.addDecoratorPath("/*", "main.jsp");
+            	builder.addDecoratorPath("/*", "main.jsp");
 
-                // Loại trừ các tài nguyên tĩnh và API
-                builder.addExcludedPath("/static/**");
-                builder.addExcludedPath("/css/**");
-                builder.addExcludedPath("/js/**");
-                builder.addExcludedPath("/images/**");
-                builder.addExcludedPath("/api/**");
+            	// Loại trừ decorator cho màn hình đăng nhập, đăng ký
+            	builder.addExcludedPath("/login");
+            	builder.addExcludedPath("/register");
+
+            	builder.addExcludedPath("/static/**");
+            	builder.addExcludedPath("/css/**");
+            	builder.addExcludedPath("/js/**");
+            	builder.addExcludedPath("/images/**");
+            	builder.addExcludedPath("/api/**");
+            	
+            	builder.addExcludedPath("/login");
+                builder.addExcludedPath("/register");
+                builder.addExcludedPath("/verify-otp");
+                builder.addExcludedPath("/resend-otp");
+                builder.addExcludedPath("/forgot-password");
+                builder.addExcludedPath("/reset-password");
             }
         });
         filter.addUrlPatterns("/*");
