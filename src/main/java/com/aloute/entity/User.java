@@ -18,48 +18,57 @@ import java.util.Set;
 @Builder
 public class User {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
 
-    @Column(nullable = false, unique = true, length = 50)
-    private String username;
+	@Column(length = 6)
+	private String otpCode;
 
-    @Column(nullable = false, length = 255)
-    private String password;
+	private LocalDateTime otpExpiryTime;
 
-    @Column(nullable = false, length = 100)
-    private String fullName;
+	@Column(nullable = false, unique = true, length = 50)
+	private String username;
 
-    @Column(nullable = false, unique = true, length = 100)
-    private String email;
+	@Column(nullable = false, length = 255)
+	private String password;
 
-    @Column(length = 255)
-    private String avatar; // Link ảnh Cloudinary
+	@Column(nullable = false, length = 100)
+	private String fullName;
 
-    @Column(length = 255)
-    private String coverImage; // Link ảnh bìa Cloudinary
+	@Column(nullable = false, unique = true, length = 100)
+	private String email;
 
-    @Column(columnDefinition = "TEXT")
-    private String bio;
+	@Column(columnDefinition = "LONGTEXT")
+	private String avatar; // Lưu ảnh Base64 hoặc link Cloudinary
 
-    @Builder.Default
-    @Column(nullable = false)
-    private Boolean active = true;
+	@Column(name = "cover_image", columnDefinition = "LONGTEXT")
+	private String coverImage; // Lưu ảnh Base64 hoặc link Cloudinary
 
-    @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(
-        name = "user_roles",
-        joinColumns = @JoinColumn(name = "user_id"),
-        inverseJoinColumns = @JoinColumn(name = "role_id")
-    )
-    @Builder.Default
-    private Set<Role> roles = new HashSet<>();
+	@Column(columnDefinition = "TEXT")
+	private String bio;
 
-    @CreationTimestamp
-    @Column(updatable = false)
-    private LocalDateTime createdAt;
+	// Đếm số lần đăng nhập sai liên tiếp
+	@Builder.Default
+	@Column(nullable = false)
+	private Integer failedAttempt = 0;
 
-    @UpdateTimestamp
-    private LocalDateTime updatedAt;
+	// Thời điểm tài khoản bị tạm khóa (null nếu không bị khóa)
+	private LocalDateTime lockTime;
+
+	@Builder.Default
+	@Column(nullable = false)
+	private Boolean active = true;
+
+	@ManyToMany(fetch = FetchType.EAGER)
+	@JoinTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "role_id"))
+	@Builder.Default
+	private Set<Role> roles = new HashSet<>();
+
+	@CreationTimestamp
+	@Column(updatable = false)
+	private LocalDateTime createdAt;
+
+	@UpdateTimestamp
+	private LocalDateTime updatedAt;
 }
