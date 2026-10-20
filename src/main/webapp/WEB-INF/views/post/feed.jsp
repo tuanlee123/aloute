@@ -405,6 +405,10 @@
                         </script>
                     </c:if>
 
+                    <jsp:include page="/WEB-INF/views/interaction/post-actions.jsp">
+                        <jsp:param name="postId" value="${p.id}"/>
+                    </jsp:include>
+
                     <div class="post-action-bar mt-3">
                         <button type="button" class="btn-post-share" onclick="openShareModal(${p.id}, '${p.user.fullName != null ? p.user.fullName : p.user.username}')">
                             <i class="bi bi-reply-fill" style="transform: scaleX(-1); font-size: 19px;"></i>
@@ -541,6 +545,7 @@
     </button>
 </div>
 
+<script src="${pageContext.request.contextPath}/js/interaction.js"></script>
 <script>
 const dt = new DataTransfer();
 
