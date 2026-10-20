@@ -39,11 +39,11 @@ public class User {
 	@Column(nullable = false, unique = true, length = 100)
 	private String email;
 
-	@Column(length = 255)
-	private String avatar; // Link ảnh Cloudinary
+	@Column(columnDefinition = "LONGTEXT")
+	private String avatar; // Lưu ảnh Base64 hoặc link Cloudinary
 
-	@Column(length = 255)
-	private String coverImage; // Link ảnh bìa Cloudinary
+	@Column(name = "cover_image", columnDefinition = "LONGTEXT")
+	private String coverImage; // Lưu ảnh Base64 hoặc link Cloudinary
 
 	@Column(columnDefinition = "TEXT")
 	private String bio;

@@ -71,7 +71,6 @@ body {
 				</div>
 			</form>
 
-			<!-- Menu bên phải: Thông báo, Tin nhắn, User -->
 			<!-- Menu bên phải: Thông báo, User Profile hoặc Nút Đăng nhập -->
 			<div class="d-flex align-items-center ms-auto gap-3">
 				<c:choose>
@@ -90,10 +89,13 @@ body {
 							<button
 								class="btn btn-light d-flex align-items-center gap-2 rounded-pill px-3 py-1"
 								data-bs-toggle="dropdown" aria-expanded="false">
-								<img src="${sessionScope.currentUser.avatar}" alt="Avatar"
+								<img src="${not empty sessionScope.currentUser.avatar ? sessionScope.currentUser.avatar : 'https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg'}" 
+									alt="Avatar"
 									class="rounded-circle" width="32" height="32"
-									style="object-fit: cover;"> <span
-									class="fw-semibold d-none d-sm-inline">${sessionScope.currentUser.fullName}</span>
+									style="object-fit: cover;"> 
+								<span class="fw-semibold d-none d-sm-inline">
+									${not empty sessionScope.currentUser.fullName ? sessionScope.currentUser.fullName : sessionScope.currentUser.username}
+								</span>
 							</button>
 							<ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
 								<li><a class="dropdown-item"
@@ -151,5 +153,14 @@ body {
 	<!-- Bootstrap 5 Bundle JS -->
 	<script
 		src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+	<!-- Script chống Back-Forward Cache (bfcache) ngăn treo phiên sau khi đăng xuất -->
+	<script>
+		window.addEventListener("pageshow", function(event) {
+			if (event.persisted || (window.performance && window.performance.getEntriesByType("navigation")[0]?.type === "back_forward")) {
+				window.location.reload();
+			}
+		});
+	</script>
 </body>
 </html>
