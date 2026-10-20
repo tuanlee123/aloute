@@ -43,4 +43,8 @@ public class Post {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+    
+    @Column(name = "share_count", columnDefinition = "int default 0")
+    @Builder.Default
+    private Integer shareCount = 0;
 }
