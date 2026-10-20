@@ -1,16 +1,12 @@
 package com.aloute.repository;
 
-import com.aloute.entity.Comment;
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-
-import java.util.List;
+import com.aloute.entity.Comment;
 
 @Repository
 public interface CommentRepository extends JpaRepository<Comment, Long> {
-    // Lấy các bình luận gốc (không có parent) của một bài viết
-    List<Comment> findByPostIdAndParentIsNullOrderByCreatedAtAsc(Long postId);
-
-    // Đếm tổng số bình luận của một bài viết
+    List<Comment> findByPostIdOrderByCreatedAtAsc(Long postId);
     long countByPostId(Long postId);
 }

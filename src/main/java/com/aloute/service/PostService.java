@@ -5,6 +5,7 @@ import com.aloute.entity.Post;
 import com.aloute.entity.PostImage;
 import com.aloute.entity.User;
 import com.aloute.repository.PostRepository;
+import com.aloute.repository.SavedPostRepository;
 import com.aloute.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -16,141 +17,132 @@ import java.util.List;
 @Service
 public class PostService {
 
-    @Autowired
-    private PostRepository postRepository;
+	@Autowired
+	private PostRepository postRepository;
 
-    @Autowired
-    private UserRepository userRepository;
+	@Autowired
+	private UserRepository userRepository;
 
-    @Autowired
-    private CloudinaryService cloudinaryService;
-    
-    @Autowired
-    private com.aloute.repository.SavedPostRepository savedPostRepository;
+	@Autowired
+	private CloudinaryService cloudinaryService;
 
-    // Lưu / Bỏ lưu bài viết (Toggle)
-    @Transactional
-    public boolean toggleSavePost(Long postId) {
-        Long currentUserId = 1L; // User tạm thời
-        if (savedPostRepository.existsByUserIdAndPostId(currentUserId, postId)) {
-            savedPostRepository.deleteByUserIdAndPostId(currentUserId, postId);
-            return false; // Đã bỏ lưu
-        } else {
-            User user = userRepository.findById(currentUserId).orElseThrow();
-            Post post = getPostById(postId);
-            savedPostRepository.save(com.aloute.entity.SavedPost.builder()
-                    .user(user)
-                    .post(post)
-                    .build());
-            return true; // Đã lưu
-        }
-    }
+	@Autowired
+	private SavedPostRepository savedPostRepository;
 
-    // Kiểm tra bài viết đã được lưu chưa
-    public boolean isPostSaved(Long postId) {
-        return savedPostRepository.existsByUserIdAndPostId(1L, postId);
-    }
+	// 1. Lưu / Bỏ lưu bài viết theo người dùng đang đăng nhập
+	@Transactional
+	public boolean toggleSavePost(Long postId, User currentUser) {
+		if (savedPostRepository.existsByUserIdAndPostId(currentUser.getId(), postId)) {
+			savedPostRepository.deleteByUserIdAndPostId(currentUser.getId(), postId);
+			return false;
+		} else {
+			Post post = getPostById(postId);
+			savedPostRepository.save(com.aloute.entity.SavedPost.builder().user(currentUser).post(post).build());
+			return true;
+		}
+	}
 
-    // Lấy danh sách các bài viết đã lưu
-    public List<Post> getSavedPosts() {
-        List<com.aloute.entity.SavedPost> list = savedPostRepository.findAllByUserIdOrderByCreatedAtDesc(1L);
-        return list.stream().map(com.aloute.entity.SavedPost::getPost).toList();
-    }
+	// 2. Kiểm tra bài viết đã được người dùng lưu chưa
+	public boolean isPostSaved(Long postId, User currentUser) {
+		if (currentUser == null)
+			return false;
+		return savedPostRepository.existsByUserIdAndPostId(currentUser.getId(), postId);
+	}
 
-    // Chia sẻ bài viết lên Feed của mình
-    @Transactional
-    public Post sharePostToFeed(Long originalPostId, String caption, String privacy) {
-        User currentUser = userRepository.findById(1L).orElseThrow();
-        Post originalPost = getPostById(originalPostId);
+	// 3. Lấy danh sách các bài viết đã lưu của người dùng hiện tại
+	public List<Post> getSavedPosts(User currentUser) {
+		List<com.aloute.entity.SavedPost> list = savedPostRepository
+				.findAllByUserIdOrderByCreatedAtDesc(currentUser.getId());
+		return list.stream().map(com.aloute.entity.SavedPost::getPost).toList();
+	}
 
-        // Tăng số lượt chia sẻ của bài gốc
-        originalPost.setShareCount(originalPost.getShareCount() == null ? 1 : originalPost.getShareCount() + 1);
-        postRepository.save(originalPost);
+	// 4. Chia sẻ bài viết lên Feed của chính người dùng hiện tại
+	@Transactional
+	public Post sharePostToFeed(Long originalPostId, String caption, String privacy, User currentUser) {
+		Post originalPost = getPostById(originalPostId);
 
-        // Tạo bài viết mới trích dẫn nội dung bài gốc
-        String combinedContent = (caption != null && !caption.isBlank() ? caption + "\n\n" : "") 
-                + "🔁 [Chia sẻ từ " + (originalPost.getUser().getFullName() != null ? originalPost.getUser().getFullName() : originalPost.getUser().getUsername()) + "]:\n" 
-                + originalPost.getContent();
+		// Tăng số lượt chia sẻ của bài gốc
+		originalPost.setShareCount(originalPost.getShareCount() == null ? 1 : originalPost.getShareCount() + 1);
+		postRepository.save(originalPost);
 
-        Post sharedPost = Post.builder()
-                .content(combinedContent)
-                .privacy(privacy != null ? privacy : "PUBLIC")
-                .user(currentUser)
-                .build();
+		String originalAuthorName = (originalPost.getUser().getFullName() != null
+				&& !originalPost.getUser().getFullName().isBlank()) ? originalPost.getUser().getFullName()
+						: originalPost.getUser().getUsername();
 
-        // Kế thừa các ảnh từ bài gốc
-        if (originalPost.getImages() != null) {
-            for (com.aloute.entity.PostImage img : originalPost.getImages()) {
-                sharedPost.getImages().add(com.aloute.entity.PostImage.builder()
-                        .imageUrl(img.getImageUrl())
-                        .post(sharedPost)
-                        .build());
-            }
-        }
-        return postRepository.save(sharedPost);
-    }
+		// Tạo bài viết mới gán cho currentUser
+		String combinedContent = (caption != null && !caption.isBlank() ? caption + "\n\n" : "") + "🔁 [Chia sẻ từ "
+				+ originalAuthorName + "]:\n" + originalPost.getContent();
 
-    // Chia sẻ cho bạn bè (tăng counter)
-    @Transactional
-    public void shareToFriend(Long postId) {
-        Post post = getPostById(postId);
-        post.setShareCount(post.getShareCount() == null ? 1 : post.getShareCount() + 1);
-        postRepository.save(post);
-    }
+		Post sharedPost = Post.builder().content(combinedContent).privacy(privacy != null ? privacy : "PUBLIC")
+				.user(currentUser).build();
 
-    // 1. Lấy danh sách toàn bộ bài viết mới nhất
-    public List<Post> getAllPosts() {
-        return postRepository.findAllByOrderByCreatedAtDesc();
-    }
+		// Kế thừa các ảnh từ bài gốc
+		if (originalPost.getImages() != null) {
+			for (PostImage img : originalPost.getImages()) {
+				sharedPost.getImages().add(PostImage.builder().imageUrl(img.getImageUrl()).post(sharedPost).build());
+			}
+		}
+		return postRepository.save(sharedPost);
+	}
 
-    // 2. Lấy 1 bài viết theo ID
-    public Post getPostById(Long id) {
-        return postRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy bài viết với ID: " + id));
-    }
+	// Chia sẻ cho bạn bè (tăng counter)
+	@Transactional
+	public void shareToFriend(Long postId) {
+		Post post = getPostById(postId);
+		post.setShareCount(post.getShareCount() == null ? 1 : post.getShareCount() + 1);
+		postRepository.save(post);
+	}
 
-    // 3. Đăng bài viết mới (hỗ trợ nhiều ảnh qua DTO, tạm gán User ID = 1)
-    @Transactional
-    public Post createPost(PostCreateDTO dto) throws IOException {
-        User user = userRepository.findById(1L)
-                .orElseThrow(() -> new RuntimeException("Chưa có User ID = 1 trong Database!"));
+	// Lấy danh sách toàn bộ bài viết mới nhất cho bảng tin
+	public List<Post> getAllPosts() {
+		return postRepository.findAllByOrderByCreatedAtDesc();
+	}
 
-        Post post = Post.builder()
-                .content(dto.getContent())
-                .privacy(dto.getPrivacy() != null ? dto.getPrivacy() : "PUBLIC")
-                .user(user)
-                .build();
+	// Lấy 1 bài viết theo ID
+	public Post getPostById(Long id) {
+		return postRepository.findById(id)
+				.orElseThrow(() -> new RuntimeException("Không tìm thấy bài viết với ID: " + id));
+	}
 
-        // Xử lý upload danh sách ảnh lên Cloudinary
-        if (dto.getImages() != null && !dto.getImages().isEmpty()) {
-            List<String> imageUrls = cloudinaryService.uploadMultipleImages(dto.getImages());
-            for (String url : imageUrls) {
-                PostImage postImage = PostImage.builder()
-                        .imageUrl(url)
-                        .post(post)
-                        .build();
-                post.getImages().add(postImage);
-            }
-        }
+	// 5. Đăng bài viết mới: Gắn trực tiếp cho currentUser đang đăng nhập
+	@Transactional
+	public Post createPost(PostCreateDTO dto, User currentUser) throws IOException {
+		Post post = Post.builder().content(dto.getContent())
+				.privacy(dto.getPrivacy() != null ? dto.getPrivacy() : "PUBLIC").user(currentUser).build();
 
-        return postRepository.save(post);
-    }
+		// Xử lý upload danh sách ảnh lên Cloudinary
+		if (dto.getImages() != null && !dto.getImages().isEmpty()) {
+			List<String> imageUrls = cloudinaryService.uploadMultipleImages(dto.getImages());
+			for (String url : imageUrls) {
+				PostImage postImage = PostImage.builder().imageUrl(url).post(post).build();
+				post.getImages().add(postImage);
+			}
+		}
 
-    // 4. Chỉnh sửa nội dung bài viết
-    @Transactional
-    public Post updatePost(Long id, String newContent, String newPrivacy) {
-        Post post = getPostById(id);
-        post.setContent(newContent);
-        if (newPrivacy != null) {
-            post.setPrivacy(newPrivacy);
-        }
-        return postRepository.save(post);
-    }
+		return postRepository.save(post);
+	}
 
-    // 5. Xóa bài viết
-    @Transactional
-    public void deletePost(Long id) {
-        Post post = getPostById(id);
-        postRepository.delete(post);
-    }
+	// Chỉnh sửa nội dung bài viết
+	@Transactional
+	public Post updatePost(Long id, String newContent, String newPrivacy) {
+		Post post = getPostById(id);
+		post.setContent(newContent);
+		if (newPrivacy != null) {
+			post.setPrivacy(newPrivacy);
+		}
+		return postRepository.save(post);
+	}
+
+	// Xóa bài viết
+	@Transactional
+	public void deletePost(Long id) {
+		Post post = getPostById(id);
+
+		// 1. Xóa sạch các bản ghi bài này trong mục "Đã lưu" trước để không bị dính
+		// khóa ngoại
+		savedPostRepository.deleteByPostId(id);
+
+		// 2. Sau đó mới xóa bài viết chính
+		postRepository.delete(post);
+	}
 }

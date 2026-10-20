@@ -5,11 +5,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><sitemesh:write property='title' /> - ALOUTE</title>
+    <title><sitemesh:write property='title' /> | ALOUTE</title>
 
     <!-- Bootstrap 5 CSS & Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+
+    <!-- Font Awesome (dành cho icon Trái tim Like / Unlike) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
         body {
@@ -121,7 +124,7 @@
         </div>
     </nav>
 
-    <!-- 2. Thân trang (Sidebar duy nhất + Vùng hiển thị nội dung động) -->
+    <!-- 2. Thân trang (Sidebar + Vùng nội dung động) -->
     <div class="container-fluid px-4 mt-3">
         <div class="row">
             <!-- Sidebar bên trái -->
@@ -151,7 +154,7 @@
                 </div>
             </aside>
 
-            <!-- Khu vực nội dung do trang con quyết định -->
+            <!-- Khu vực nội dung do các trang con (feed, profile,...) quyết định -->
             <main class="col-md-9 col-lg-10">
                 <sitemesh:write property='body' />
             </main>
@@ -161,7 +164,10 @@
     <!-- Bootstrap 5 Bundle JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-    <!-- Script chống Back-Forward Cache (bfcache) ngăn lưu cache sau đăng xuất -->
+    <!-- Script tương tác AJAX (Like & Comment) của bạn -->
+    <script src="<c:url value='/js/interaction.js' />"></script>
+
+    <!-- Script chống Back-Forward Cache (bfcache) -->
     <script>
         window.addEventListener("pageshow", function(event) {
             if (event.persisted || (window.performance && window.performance.getEntriesByType("navigation")[0]?.type === "back_forward")) {
