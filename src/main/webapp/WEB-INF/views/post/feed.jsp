@@ -2,14 +2,9 @@
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
 <%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
-<!DOCTYPE html>
-<html lang="vi">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bảng tin ALOUTE</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <title>Bảng tin - ALOUTE</title>
     <style>
         .post-dropdown-menu {
             display: none;
@@ -244,7 +239,6 @@
         .viewer-btn-left { left: 24px; }
         .viewer-btn-right { right: 24px; }
 
-        /* DANH SÁCH BẠN BÈ TRONG MODAL CHIA SẺ */
         .friend-avatar-list {
             display: flex;
             gap: 16px;
@@ -281,14 +275,12 @@
             width: 100%;
         }
 
-        /* ICON ĐÃ LƯU GRADIENT HỒNG TÍM */
         .icon-saved-gradient {
             background: linear-gradient(135deg, #e0245e, #8a3ab9);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
         
-/* Đảm bảo Modal Chia sẻ luôn nổi lên trên cùng */
         #shareModal {
             z-index: 100005 !important;
         }
@@ -297,7 +289,6 @@
         }
     </style>
 </head>
-<body class="bg-light">
 
 <div class="container my-4" style="max-width: 680px;">
     
@@ -350,7 +341,6 @@
                                 <i class="bi bi-three-dots-vertical"></i>
                             </button>
                             <ul class="dropdown-menu shadow border rounded-3 post-dropdown-menu py-1">
-                                <!-- NÚT LƯU BÀI VIẾT -->
                                 <li>
                                     <button type="button" class="dropdown-item py-2" onclick="savePostAjax(${p.id})">
                                         <i class="bi bi-bookmark-fill icon-saved-gradient me-2"></i>Lưu bài viết
@@ -374,7 +364,7 @@
                         </div>
                     </div>
 
-                    <!-- NỘI DUNG BÀI VIẾT: RÚT GỌN NẾU DÀI KÈM "... XEM THÊM" -->
+                    <!-- NỘI DUNG BÀI VIẾT -->
                     <div class="card-text text-dark mb-3" style="white-space: pre-line;">
                         <c:choose>
                             <c:when test="${fn:length(p.content) > 160}">
@@ -386,7 +376,7 @@
                         </c:choose>
                     </div>
 
-                    <!-- LƯỚI ẢNH: BẤM VÀO ĐỂ MỞ LIGHTBOX -->
+                    <!-- LƯỚI ẢNH -->
                     <c:if test="${not empty p.images}">
                         <c:set var="imgCount" value="${fn:length(p.images)}" />
                         <div class="post-images-grid ${imgCount >= 4 ? 'grid-4' : (imgCount == 3 ? 'grid-3' : (imgCount == 2 ? 'grid-2' : 'grid-1'))}">
@@ -415,7 +405,6 @@
                         </script>
                     </c:if>
 
-                    <!-- NÚT CHIA SẺ & SỐ LƯỢT CHIA SẺ (DƯỚI BÀI VIẾT NHƯ HÌNH 1 & 4) -->
                     <div class="post-action-bar mt-3">
                         <button type="button" class="btn-post-share" onclick="openShareModal(${p.id}, '${p.user.fullName != null ? p.user.fullName : p.user.username}')">
                             <i class="bi bi-reply-fill" style="transform: scaleX(-1); font-size: 19px;"></i>
@@ -437,12 +426,11 @@
 
 </div>
 
-<!-- MODAL CHIA SẺ CHUẨN FACEBOOK (NHƯ HÌNH 5) -->
+<!-- MODAL CHIA SẺ -->
 <div class="modal fade" id="shareModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" style="max-width: 520px;">
         <div class="modal-content rounded-4 border-0 shadow">
             
-            <!-- HEADER MODAL -->
             <div class="modal-header border-0 pb-0 justify-content-center position-relative">
                 <h5 class="modal-title fw-bold fs-5">Chia sẻ</h5>
                 <button type="button" class="btn-close position-absolute end-0 me-3" data-bs-dismiss="modal"></button>
@@ -450,7 +438,6 @@
 
             <div class="modal-body pt-3">
                 
-                <!-- PHẦN 1: CHIA SẺ LÊN BẢNG FEED CỦA MÌNH -->
                 <form id="shareFeedForm" action="" method="post">
                     <div class="d-flex align-items-center gap-2 mb-3">
                         <img src="https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg" class="rounded-circle border" width="46" height="46">
@@ -479,7 +466,6 @@
 
                 <hr class="text-secondary my-3 opacity-25">
 
-                <!-- PHẦN 2: GỬI BẰNG MESSENGER / CHIA SẺ CHO BẠN BÈ ĐÃ KẾT BẠN -->
                 <div>
                     <div class="fw-bold text-dark mb-3">Gửi bằng Messenger</div>
                     <div class="friend-avatar-list">
@@ -513,10 +499,8 @@
     </div>
 </div>
 
-<!-- KHUNG MODAL XEM ẢNH LIGHTBOX (CÓ NÚT CHIA SẺ DƯỚI ẢNH) -->
+<!-- KHUNG MODAL XEM ẢNH LIGHTBOX -->
 <div id="imageViewerModal" onclick="closeViewerOnBackdrop(event)">
-    
-    <!-- THANH CÔNG CỤ TRÊN GÓC PHẢI -->
     <div class="viewer-top-tools" onclick="event.stopPropagation()">
         <span class="viewer-counter-badge" id="viewerCounter">1 / 1</span>
         
@@ -537,7 +521,6 @@
         </button>
     </div>
 
-    <!-- NÚT ĐIỀU HƯỚNG TRÁI / PHẢI -->
     <button type="button" class="viewer-side-btn viewer-btn-left" title="Ảnh trước đó" onclick="showPrevImage(event)">
         <i class="bi bi-chevron-left"></i>
     </button>
@@ -546,7 +529,6 @@
         <img id="imageViewerImg" src="" alt="Xem ảnh" ondblclick="toggleDoubleZoom(event)">
     </div>
 
-    <!-- NÚT CHIA SẺ BÊN DƯỚI KHUNG XEM ẢNH -->
     <div class="viewer-bottom-bar" onclick="event.stopPropagation()">
         <button type="button" class="viewer-share-btn" onclick="openShareModalFromViewer()">
             <i class="bi bi-reply-fill" style="transform: scaleX(-1); font-size: 20px;"></i>
@@ -559,9 +541,7 @@
     </button>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-// 1. Quản lý upload cộng dồn nhiều ảnh
 const dt = new DataTransfer();
 
 function addSelectedFiles(input) {
@@ -614,7 +594,6 @@ function renderImagePreviews() {
     }
 }
 
-// 2. Menu 3 chấm
 function togglePostMenu(button, event) {
     event.stopPropagation();
     const menu = button.nextElementSibling;
@@ -628,7 +607,6 @@ document.addEventListener('click', function() {
     document.querySelectorAll('.post-dropdown-menu').forEach(m => m.style.display = 'none');
 });
 
-// 3. RÚT GỌN NỘI DUNG DÀI KÈM "... XEM THÊM"
 function toggleReadMore(postId) {
     const dots = document.getElementById('dots-' + postId);
     const moreText = document.getElementById('more-' + postId);
@@ -645,7 +623,6 @@ function toggleReadMore(postId) {
     }
 }
 
-// 4. LƯU BÀI VIẾT (AJAX)
 function savePostAjax(postId) {
     fetch('${pageContext.request.contextPath}/post/save/' + postId, {
         method: 'POST'
@@ -662,7 +639,6 @@ function savePostAjax(postId) {
     .catch(() => alert('Có lỗi xảy ra khi lưu bài viết!'));
 }
 
-// 5. CHIA SẺ BÀI VIẾT & MODAL CHIA SẺ
 let activeSharePostId = null;
 
 function openShareModal(postId, authorName) {
@@ -676,7 +652,6 @@ function openShareModal(postId, authorName) {
 
 function openShareModalFromViewer() {
     if (activeViewerPostId) {
-        // Tạm đóng lightbox để mở modal chia sẻ nổi bật nhất
         closeImageViewer();
         openShareModal(activeViewerPostId, '');
     }
@@ -699,7 +674,6 @@ function sendToFriend(element, friendName) {
     });
 }
 
-// 6. XỬ LÝ LIGHTBOX XEM ẢNH, ZOOM VÀ ĐIỀU HƯỚNG TRÁI / PHẢI
 let currentPostImages = [];
 let currentImageIndex = 0;
 let currentZoom = 1.0;
@@ -826,6 +800,3 @@ document.addEventListener('keydown', function(e) {
     }
 });
 </script>
-
-</body>
-</html>
