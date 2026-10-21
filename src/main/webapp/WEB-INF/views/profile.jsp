@@ -770,4 +770,3 @@
 			</script>
 
 			<!-- Nhúng file interaction.js để kích hoạt tính năng Like/Comment/Sửa/Xóa -->
-			<script src="${pageContext.request.contextPath}/js/interaction.js"></script>

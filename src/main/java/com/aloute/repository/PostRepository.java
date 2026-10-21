@@ -4,6 +4,7 @@ import com.aloute.entity.Post;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -16,4 +17,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 
     // Tìm kiếm bài viết theo từ khóa nội dung
     List<Post> findByContentContainingIgnoreCaseOrderByCreatedAtDesc(String keyword);
+
+    // Đếm bài viết từ một mốc thời gian (dùng cho thống kê "bài viết hôm nay")
+    long countByCreatedAtGreaterThanEqual(LocalDateTime start);
 }

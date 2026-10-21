@@ -37,19 +37,10 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 
-    // 2. ĐẢM BẢO TẤT CẢ NÚT 3 CHẤM (CŨ VÀ MỚI) ĐỀU MỞ ĐƯỢC MENU
-    document.addEventListener("click", function (e) {
-        const toggleBtn = e.target.closest('[data-bs-toggle="dropdown"]');
-        if (toggleBtn && typeof bootstrap !== "undefined" && bootstrap.Dropdown) {
-            const dropdownInstance = bootstrap.Dropdown.getOrCreateInstance(toggleBtn);
-            if (dropdownInstance) {
-                dropdownInstance.toggle();
-            }
-        }
-    });
-
     // 3. Xử lý Thả tim (Like/Unlike)
     document.querySelectorAll(".btn-like").forEach(button => {
+        if (button.dataset.bound === "1") return; // tránh gắn trùng
+        button.dataset.bound = "1";
         button.addEventListener("click", function () {
             if (this.disabled) return;
             this.disabled = true; // Chống spam click liên tục
@@ -89,6 +80,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // 4. Xử lý Gửi Bình luận qua AJAX
     document.querySelectorAll(".form-comment").forEach(form => {
+        if (form.dataset.bound === "1") return; // tránh gắn trùng
+        form.dataset.bound = "1";
         form.addEventListener("submit", function (e) {
             e.preventDefault();
             const postId = this.getAttribute("data-post-id");

@@ -34,6 +34,9 @@ public class InteractionService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private NotificationService notificationService;
+
     @Transactional
     public Map<String, Object> toggleLike(Long postId, Long userId) {
         User user = userRepository.findById(userId)
@@ -53,6 +56,8 @@ public class InteractionService {
             like.setPost(post);
             likeRepository.save(like);
             isLiked = true;
+            notificationService.create(post.getUser(), user, "đã thích bài viết của bạn",
+                    "/post/feed#post-card-" + postId);
         }
 
         long totalLikes = likeRepository.countByPost(post);
@@ -81,6 +86,9 @@ public class InteractionService {
                 .build();
 
         Comment saved = commentRepository.save(comment);
+
+        notificationService.create(post.getUser(), user, "đã bình luận về bài viết của bạn",
+                "/post/feed#post-card-" + postId);
 
         // Lấy thông tin hiển thị an toàn trực tiếp từ User
         String fullName = (user.getFullName() != null && !user.getFullName().isBlank()) 

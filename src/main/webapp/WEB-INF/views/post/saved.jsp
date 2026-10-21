@@ -457,4 +457,3 @@
     }
 </script>
 
-<script src="${pageContext.request.contextPath}/js/interaction.js"></script>
