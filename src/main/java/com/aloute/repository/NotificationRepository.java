@@ -14,4 +14,8 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     // Đếm số lượng thông báo chưa đọc
     long countByRecipientIdAndIsReadFalse(Long recipientId);
+
+    // Chống tạo trùng thông báo giống hệt khi người dùng like/unlike liên tục
+    boolean existsByRecipientIdAndSenderIdAndContentAndTargetUrlAndIsReadFalse(
+            Long recipientId, Long senderId, String content, String targetUrl);
 }

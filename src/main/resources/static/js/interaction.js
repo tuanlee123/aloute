@@ -1,164 +1,283 @@
-/* ALOUTE - Like & Comment bằng AJAX (Bạn 3 - feature/social-interaction) */
-document.addEventListener('DOMContentLoaded', function () {
-    'use strict';
+document.addEventListener("DOMContentLoaded", function () {
 
-    var bars = document.querySelectorAll('.interaction-bar');
-    if (!bars.length) return;
-    var ctx = bars[0].dataset.ctx || '';
+    // Helper mã hóa ký tự tránh lỗi vỡ HTML / XSS
+    function escapeHtml(text) {
+        if (!text) return "";
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
 
-    // ---------- Gọi API, tự chuyển về trang đăng nhập nếu hết phiên ----------
-    function api(path, options) {
-        var opts = Object.assign({ credentials: 'same-origin', headers: { 'Accept': 'application/json' } }, options || {});
-        return fetch(ctx + path, opts).then(function (res) {
-            if (res.redirected || res.status === 401) {
-                window.location.href = ctx + '/login';
-                throw new Error('Chưa đăng nhập');
+    // Helper format thời gian gửi: Giờ:Phút Ngày/Tháng/Năm (VD: 14:30 21/10/2026)
+    function getCurrentTimeString(dateInput) {
+        const d = dateInput ? new Date(dateInput) : new Date();
+        const hours = String(d.getHours()).padStart(2, '0');
+        const minutes = String(d.getMinutes()).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${hours}:${minutes} ${day}/${month}/${year}`;
+    }
+
+    // 1. Tự động chuyển sang trang cá nhân khi click vào Avatar hoặc phần tử có data-user-id
+    document.addEventListener("click", function (e) {
+        const userTarget = e.target.closest("[data-user-id], .user-avatar-link");
+        if (userTarget && !e.target.closest("button") && !e.target.closest(".dropdown") && !e.target.closest("input") && !e.target.closest("form")) {
+            const parentLink = userTarget.closest("a");
+            if (parentLink && parentLink.getAttribute("href") && parentLink.getAttribute("href") !== "#" && parentLink.getAttribute("href") !== "javascript:void(0)") {
+                return;
             }
-            if (!res.ok) {
-                return res.json().catch(function () { return {}; }).then(function (b) {
-                    throw new Error(b.message || 'Có lỗi xảy ra, vui lòng thử lại!');
-                });
+            const uid = userTarget.getAttribute("data-user-id");
+            if (uid) {
+                window.location.href = "/profile?userId=" + uid;
             }
-            return res.json();
-        });
-    }
-
-    function barOf(postId) { return document.querySelector('.interaction-bar[data-post-id="' + postId + '"]'); }
-    function sectionOf(postId) { return document.querySelector('.comment-section[data-post-id="' + postId + '"]'); }
-
-    // ---------- Hiển thị trạng thái Like ----------
-    function renderLike(bar, liked, count) {
-        var btn = bar.querySelector('.btn-like');
-        var icon = btn.querySelector('i');
-        bar.querySelector('.like-count').textContent = count;
-        btn.classList.toggle('text-danger', liked);
-        btn.classList.toggle('fw-semibold', liked);
-        icon.classList.toggle('bi-heart-fill', liked);
-        icon.classList.toggle('bi-heart', !liked);
-        btn.dataset.liked = liked ? '1' : '0';
-    }
-
-    // ---------- Tạo 1 dòng bình luận (dùng textContent để chống XSS) ----------
-    function buildComment(c) {
-        var row = document.createElement('div');
-        row.className = 'd-flex align-items-start gap-2';
-
-        var img = document.createElement('img');
-        img.src = c.avatar;
-        img.width = 32; img.height = 32;
-        img.className = 'rounded-circle border';
-        img.style.objectFit = 'cover';
-
-        var box = document.createElement('div');
-        box.className = 'bg-light rounded-3 px-3 py-2';
-        box.style.maxWidth = '100%';
-        box.style.wordBreak = 'break-word';
-
-        var name = document.createElement('div');
-        name.className = 'fw-semibold small';
-        name.textContent = c.fullName;
-
-        var text = document.createElement('div');
-        text.className = 'small';
-        text.style.whiteSpace = 'pre-wrap';
-        text.textContent = c.content;
-
-        var time = document.createElement('div');
-        time.className = 'text-muted';
-        time.style.fontSize = '11px';
-        time.textContent = c.createdAt;
-
-        box.appendChild(name); box.appendChild(text); box.appendChild(time);
-        row.appendChild(img); row.appendChild(box);
-        return row;
-    }
-
-    function showError(section, msg) {
-        var el = section.querySelector('.comment-error');
-        el.textContent = msg || '';
-        el.classList.toggle('d-none', !msg);
-    }
-
-    // ---------- Nạp số like / comment cho tất cả bài trên trang ----------
-    var ids = Array.prototype.map.call(bars, function (b) { return b.dataset.postId; });
-    api('/api/posts/stats?ids=' + ids.join(',')).then(function (stats) {
-        ids.forEach(function (id) {
-            var s = stats[id];
-            if (!s) return;
-            var bar = barOf(id);
-            renderLike(bar, s.liked, s.likeCount);
-            bar.querySelector('.comment-count').textContent = s.commentCount;
-        });
-    }).catch(function () { /* giữ nguyên số 0 nếu lỗi */ });
-
-    // ---------- Gửi bình luận ----------
-    function sendComment(postId) {
-        var section = sectionOf(postId);
-        var input = section.querySelector('.comment-input');
-        var content = input.value.trim();
-        if (!content) return;
-
-        var sendBtn = section.querySelector('.btn-comment-send');
-        sendBtn.disabled = true;
-        showError(section, '');
-
-        api('/api/posts/' + postId + '/comments', {
-            method: 'POST',
-            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content: content })
-        }).then(function (data) {
-            section.querySelector('.comment-list').appendChild(buildComment(data.comment));
-            barOf(postId).querySelector('.comment-count').textContent = data.commentCount;
-            input.value = '';
-        }).catch(function (e) {
-            showError(section, e.message);
-        }).finally(function () {
-            sendBtn.disabled = false;
-            input.focus();
-        });
-    }
-
-    // ---------- Mở / đóng khung bình luận (lần đầu mở mới tải danh sách) ----------
-    function toggleComments(postId) {
-        var section = sectionOf(postId);
-        section.classList.toggle('d-none');
-        if (section.classList.contains('d-none') || section.dataset.loaded === '1') return;
-
-        api('/api/posts/' + postId + '/comments').then(function (list) {
-            var box = section.querySelector('.comment-list');
-            box.innerHTML = '';
-            list.forEach(function (c) { box.appendChild(buildComment(c)); });
-            section.dataset.loaded = '1';
-        }).catch(function (e) { showError(section, e.message); });
-    }
-
-    // ---------- Bắt sự kiện bằng event delegation ----------
-    document.addEventListener('click', function (ev) {
-        var likeBtn = ev.target.closest('.btn-like');
-        if (likeBtn) {
-            var bar = likeBtn.closest('.interaction-bar');
-            likeBtn.disabled = true;
-            api('/api/posts/' + bar.dataset.postId + '/like', { method: 'POST' })
-                .then(function (d) { renderLike(bar, d.liked, d.likeCount); })
-                .catch(function (e) { console.error(e); })
-                .finally(function () { likeBtn.disabled = false; });
-            return;
-        }
-        var cmtBtn = ev.target.closest('.btn-comment-toggle');
-        if (cmtBtn) {
-            toggleComments(cmtBtn.closest('.interaction-bar').dataset.postId);
-            return;
-        }
-        var sendBtn = ev.target.closest('.btn-comment-send');
-        if (sendBtn) {
-            sendComment(sendBtn.closest('.comment-section').dataset.postId);
         }
     });
 
-    document.addEventListener('keydown', function (ev) {
-        if (ev.key === 'Enter' && ev.target.classList.contains('comment-input')) {
-            ev.preventDefault();
-            sendComment(ev.target.closest('.comment-section').dataset.postId);
-        }
+    // 2. Xử lý Thả tim (Like/Unlike)
+    document.querySelectorAll(".btn-like").forEach(button => {
+        if (button.dataset.bound === "1") return;
+        button.dataset.bound = "1";
+        button.addEventListener("click", function () {
+            if (this.disabled) return;
+            this.disabled = true;
+
+            const postId = this.getAttribute("data-post-id");
+            const countSpan = this.querySelector(".like-count");
+            const heartIcon = this.querySelector("i");
+
+            const formData = new URLSearchParams();
+            formData.append("postId", postId);
+
+            fetch("/api/interaction/like", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: formData
+            })
+            .then(res => {
+                if (!res.ok) throw new Error("HTTP Status: " + res.status);
+                return res.json();
+            })
+            .then(data => {
+                if (countSpan) countSpan.textContent = data.likeCount;
+                if (data.liked) {
+                    this.classList.add("text-danger");
+                    if (heartIcon) heartIcon.className = "fas fa-heart text-danger me-1";
+                } else {
+                    this.classList.remove("text-danger");
+                    if (heartIcon) heartIcon.className = "far fa-heart me-1";
+                }
+            })
+            .catch(err => console.error("Lỗi thả tim:", err))
+            .finally(() => {
+                this.disabled = false;
+            });
+        });
     });
+
+    // 3. Xử lý Gửi bình luận qua AJAX
+    document.querySelectorAll(".form-comment").forEach(form => {
+        if (form.dataset.bound === "1") return;
+        form.dataset.bound = "1";
+        form.addEventListener("submit", function (e) {
+            e.preventDefault();
+            const postId = this.getAttribute("data-post-id");
+            const input = this.querySelector(".input-comment");
+            const submitBtn = this.querySelector("button[type='submit']");
+            const content = input.value.trim();
+            const commentList = document.querySelector("#comment-list-" + postId);
+
+            if (!content) return;
+
+            if (submitBtn) submitBtn.disabled = true;
+
+            const formData = new URLSearchParams();
+            formData.append("postId", postId);
+            formData.append("content", content);
+
+            fetch("/api/interaction/comment", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: formData
+            })
+            .then(res => {
+                if (!res.ok) throw new Error("HTTP Status: " + res.status);
+                return res.json();
+            })
+            .then(comment => {
+                input.value = "";
+
+                if (commentList) {
+                    const avatarUrl = comment.userAvatar ? comment.userAvatar : "https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg";
+                    const safeName = escapeHtml(comment.userFullName);
+                    const safeContent = escapeHtml(comment.content);
+                    const commentId = comment.id || Date.now();
+                    const formattedTime = getCurrentTimeString(comment.createdAt);
+                    
+                    const uid = comment.userId || (comment.user ? comment.user.id : "");
+                    const profileLink = uid ? `/profile?userId=${uid}` : `/profile`;
+
+                    const item = document.createElement("div");
+                    item.className = "d-flex align-items-start mb-2 comment-item";
+                    item.id = `comment-item-${commentId}`;
+                    item.innerHTML = `
+                        <a href="${profileLink}" class="d-inline-block text-decoration-none me-2">
+                            <img src="${avatarUrl}" class="rounded-circle border" width="32" height="32" alt="avatar" style="object-fit: cover; cursor: pointer;">
+                        </a>
+                        <div class="bg-light p-2 rounded-3 flex-grow-1 position-relative">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <a href="${profileLink}" class="text-dark fw-bold text-decoration-none" style="font-size: 0.85rem;">
+                                    ${safeName}
+                                </a>
+                                
+                                <div class="dropdown">
+                                    <button class="btn btn-link text-muted p-0 border-0 text-decoration-none" 
+                                            type="button" 
+                                            data-bs-toggle="dropdown" 
+                                            aria-expanded="false">
+                                        <i class="bi bi-three-dots-vertical" style="font-size: 1rem;"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 py-1" style="font-size: 0.85rem; z-index: 1060;">
+                                        <li>
+                                            <a class="dropdown-item py-1" href="javascript:void(0)" onclick="openEditComment(${commentId})">
+                                                <i class="bi bi-pencil me-2 text-primary"></i>Chỉnh sửa
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item py-1 text-danger" href="javascript:void(0)" onclick="deleteComment(${commentId})">
+                                                <i class="bi bi-trash me-2"></i>Xóa
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div id="comment-text-${commentId}" class="text-secondary" style="font-size: 0.9rem;">
+                                ${safeContent}
+                            </div>
+
+                            <div id="comment-edit-box-${commentId}" class="d-none mt-2">
+                                <input type="text" class="form-control form-control-sm mb-1" id="comment-input-${commentId}" value="${safeContent}">
+                                <button class="btn btn-sm btn-primary rounded-pill px-2 py-0" onclick="saveEditComment(${commentId})">Lưu</button>
+                                <button class="btn btn-sm btn-light rounded-pill px-2 py-0" onclick="cancelEditComment(${commentId})">Hủy</button>
+                            </div>
+
+                            <small class="text-muted d-block mt-1" id="comment-time-${commentId}" style="font-size: 0.72rem;">${formattedTime}</small>
+                        </div>
+                    `;
+                    commentList.appendChild(item);
+                }
+            })
+            .catch(err => {
+                console.error("Lỗi gửi bình luận:", err);
+                alert("Không thể gửi bình luận, vui lòng thử lại!");
+            })
+            .finally(() => {
+                if (submitBtn) submitBtn.disabled = false;
+            });
+        });
+    });
+});
+
+// ==========================================
+// 4. Các hàm chỉnh sửa và xóa bình luận
+// ==========================================
+
+function openEditComment(commentId) {
+    const textEl = document.getElementById("comment-text-" + commentId);
+    const boxEl = document.getElementById("comment-edit-box-" + commentId);
+    if (textEl && boxEl) {
+        textEl.classList.add("d-none");
+        boxEl.classList.remove("d-none");
+        const input = document.getElementById("comment-input-" + commentId);
+        if (input) input.focus();
+    }
+}
+
+function cancelEditComment(commentId) {
+    const textEl = document.getElementById("comment-text-" + commentId);
+    const boxEl = document.getElementById("comment-edit-box-" + commentId);
+    if (textEl && boxEl) {
+        textEl.classList.remove("d-none");
+        boxEl.classList.add("d-none");
+    }
+}
+
+function saveEditComment(commentId) {
+    const inputEl = document.getElementById("comment-input-" + commentId);
+    const newContent = inputEl ? inputEl.value.trim() : "";
+    if (!newContent) return;
+
+    const formData = new URLSearchParams();
+    formData.append("commentId", commentId);
+    formData.append("content", newContent);
+
+    fetch("/api/interaction/comment/edit", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: formData
+    })
+    .then(res => {
+        if (!res.ok) throw new Error("HTTP Status: " + res.status);
+        return res.json();
+    })
+    .then(data => {
+        if (data.success) {
+            const textEl = document.getElementById("comment-text-" + commentId);
+            const timeEl = document.getElementById("comment-time-" + commentId);
+            if (textEl) textEl.innerText = data.content;
+            if (timeEl) timeEl.innerText = data.updatedAt + " (Đã chỉnh sửa)";
+            cancelEditComment(commentId);
+        }
+    })
+    .catch(err => {
+        console.error("Lỗi sửa bình luận:", err);
+        alert("Không thể chỉnh sửa bình luận!");
+    });
+}
+
+function deleteComment(commentId) {
+    if (!confirm("Bạn có chắc chắn muốn xóa bình luận này không?")) return;
+
+    const formData = new URLSearchParams();
+    formData.append("commentId", commentId);
+
+    fetch("/api/interaction/comment/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: formData
+    })
+    .then(res => {
+        if (!res.ok) throw new Error("HTTP Status: " + res.status);
+        return res.json();
+    })
+    .then(data => {
+        if (data.success) {
+            const item = document.getElementById("comment-item-" + commentId);
+            if (item) item.remove();
+        }
+    })
+    .catch(err => {
+        console.error("Lỗi xóa bình luận:", err);
+        alert("Không thể xóa bình luận!");
+    });
+}
+
+window.toggleDropdownMenu = function(button, event) {
+    if (event) event.stopPropagation();
+    const parent = button.parentElement;
+    const menu = parent.querySelector('.custom-dropdown-menu, .dropdown-menu');
+    if (!menu) return;
+    const isShown = menu.classList.contains('show');
+    document.querySelectorAll('.custom-dropdown-menu.show, .dropdown-menu.show').forEach(m => m.classList.remove('show'));
+    if (!isShown) {
+        menu.classList.add('show');
+    }
+};
+
+document.addEventListener('click', function () {
+    document.querySelectorAll('.custom-dropdown-menu.show').forEach(m => m.classList.remove('show'));
 });

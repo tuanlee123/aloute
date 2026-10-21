@@ -20,13 +20,16 @@ public class WebConfig implements WebMvcConfigurer {
                 // Loại trừ các đường dẫn công khai (không bắt buộc đăng nhập)
                 .excludePathPatterns(
                         "/login",
-                        "/logout",            // Cho phép logout chạy thẳng vào Controller để hủy session triệt để
+                        "/logout",
                         "/register",
                         "/verify-otp",
                         "/resend-otp",
                         "/forgot-password",
                         "/reset-password",
-                        "/error",             // Trang xử lý lỗi mặc định của Spring Boot
+                        "/error",
+
+                        // Endpoint API tương tác (AJAX Like & Comment)
+                        "/api/interaction/**",
 
                         // Loại trừ tài nguyên tĩnh (CSS, JS, Hình ảnh, Font)
                         "/static/**",
@@ -38,4 +41,4 @@ public class WebConfig implements WebMvcConfigurer {
                         "/favicon.ico"
                 );
     }
-}	
+}

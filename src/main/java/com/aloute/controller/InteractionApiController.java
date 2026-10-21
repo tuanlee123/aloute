@@ -1,91 +1,111 @@
 package com.aloute.controller;
 
+import com.aloute.dto.CommentResponseDTO;
+import com.aloute.entity.Comment;
 import com.aloute.entity.User;
+import com.aloute.repository.CommentRepository;
 import com.aloute.service.InteractionService;
 import jakarta.servlet.http.HttpSession;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
-/**
- * REST API cho Like / Comment (gọi bằng AJAX). Trả về JSON.
- * Đường dẫn /api/** đã được SiteMesh loại trừ nên không bị bọc layout.
- */
 @RestController
-@RequestMapping("/api/posts")
-@RequiredArgsConstructor
+@RequestMapping("/api/interaction")
 public class InteractionApiController {
 
-    private final InteractionService interactionService;
+    @Autowired
+    private InteractionService interactionService;
 
-    public record CommentRequest(String content) {
+    @Autowired
+    private CommentRepository commentRepository;
+
+    // Helper kiểm tra và lấy userId từ session
+    private Long getCurrentUserId(HttpSession session) {
+        User loggedInUser = (session != null) ? (User) session.getAttribute("currentUser") : null;
+        return (loggedInUser != null) ? loggedInUser.getId() : null;
     }
 
-    /** Lấy user đang đăng nhập từ session (AuthController lưu với key "currentUser"). */
-    private User currentUser(HttpSession session) {
-        return session == null ? null : (User) session.getAttribute("currentUser");
-    }
-
-    private ResponseEntity<Map<String, Object>> unauthorized() {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Bạn chưa đăng nhập!"));
-    }
-
-    private ResponseEntity<Map<String, Object>> badRequest(String message) {
-        return ResponseEntity.badRequest().body(Map.of("message", message));
-    }
-
-    // POST /api/posts/{postId}/like  -> {"liked":true,"likeCount":5}
-    @PostMapping("/{postId}/like")
-    public ResponseEntity<?> toggleLike(@PathVariable("postId") Long postId, HttpSession session) {
-        User user = currentUser(session);
-        if (user == null) return unauthorized();
-        try {
-            return ResponseEntity.ok(interactionService.toggleLike(postId, user.getId()));
-        } catch (IllegalArgumentException e) {
-            return badRequest(e.getMessage());
+    // 1. Thả tim (Like / Unlike)
+    @PostMapping("/like")
+    public ResponseEntity<?> toggleLike(@RequestParam("postId") Long postId, HttpSession session) {
+        Long userId = getCurrentUserId(session);
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Bạn chưa đăng nhập!"));
         }
+        Map<String, Object> result = interactionService.toggleLike(postId, userId);
+        return ResponseEntity.ok(result);
     }
 
-    // GET /api/posts/stats?ids=1,2,3 -> {"1":{"likeCount":..,"liked":..,"commentCount":..}, ...}
-    @GetMapping("/stats")
-    public ResponseEntity<?> stats(@RequestParam("ids") String ids, HttpSession session) {
-        User user = currentUser(session);
-        if (user == null) return unauthorized();
-
-        List<Long> postIds = new ArrayList<>();
-        for (String s : ids.split(",")) {
-            try {
-                postIds.add(Long.parseLong(s.trim()));
-            } catch (NumberFormatException ignored) {
-                // bỏ qua id sai định dạng
-            }
+    // 2. Gửi bình luận
+    @PostMapping("/comment")
+    public ResponseEntity<?> addComment(
+            @RequestParam("postId") Long postId,
+            @RequestParam("content") String content,
+            HttpSession session) {
+        Long userId = getCurrentUserId(session);
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Bạn chưa đăng nhập!"));
         }
-        return ResponseEntity.ok(interactionService.getStats(postIds, user.getId()));
+        CommentResponseDTO result = interactionService.addComment(postId, userId, content);
+        return ResponseEntity.ok(result);
     }
 
-    // GET /api/posts/{postId}/comments -> danh sách bình luận (cũ -> mới)
-    @GetMapping("/{postId}/comments")
-    public ResponseEntity<?> comments(@PathVariable("postId") Long postId, HttpSession session) {
-        if (currentUser(session) == null) return unauthorized();
-        return ResponseEntity.ok(interactionService.getComments(postId));
-    }
-
-    // POST /api/posts/{postId}/comments  body: {"content":"..."} -> bình luận vừa tạo
-    @PostMapping("/{postId}/comments")
-    public ResponseEntity<?> addComment(@PathVariable("postId") Long postId,
-                                        @RequestBody CommentRequest request,
-                                        HttpSession session) {
-        User user = currentUser(session);
-        if (user == null) return unauthorized();
-        try {
-            return ResponseEntity.ok(interactionService.addComment(postId, user.getId(), request.content()));
-        } catch (IllegalArgumentException e) {
-            return badRequest(e.getMessage());
+    // 3. Chỉnh sửa bình luận
+    @PostMapping("/comment/edit")
+    public ResponseEntity<?> editComment(@RequestParam("commentId") Long commentId,
+                                         @RequestParam("content") String content,
+                                         HttpSession session) {
+        User currentUser = (session != null) ? (User) session.getAttribute("currentUser") : null;
+        if (currentUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Bạn chưa đăng nhập!"));
         }
+
+        Comment comment = commentRepository.findById(commentId).orElse(null);
+        if (comment == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Không tìm thấy bình luận!");
+        }
+
+        if (!comment.getUser().getId().equals(currentUser.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Không có quyền sửa!");
+        }
+
+        comment.setContent(content);
+        comment.setCreatedAt(LocalDateTime.now());
+        commentRepository.save(comment);
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy");
+        String formattedTime = comment.getCreatedAt().format(formatter);
+
+        return ResponseEntity.ok(Map.of("success", true, "content", content, "updatedAt", formattedTime));
+    }
+
+    // 4. Xóa bình luận
+    @PostMapping("/comment/delete")
+    public ResponseEntity<?> deleteComment(@RequestParam("commentId") Long commentId,
+                                           HttpSession session) {
+        User currentUser = (session != null) ? (User) session.getAttribute("currentUser") : null;
+        if (currentUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Bạn chưa đăng nhập!"));
+        }
+
+        Comment comment = commentRepository.findById(commentId).orElse(null);
+        if (comment == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Không tìm thấy bình luận!");
+        }
+
+        // Cho phép người viết comment HOẶC chủ bài viết xóa
+        if (!comment.getUser().getId().equals(currentUser.getId()) && 
+            !comment.getPost().getUser().getId().equals(currentUser.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Không có quyền xóa!");
+        }
+
+        commentRepository.delete(comment);
+        return ResponseEntity.ok(Map.of("success", true));
     }
 }

@@ -47,4 +47,15 @@ public class Post {
     @Column(name = "share_count", columnDefinition = "int default 0")
     @Builder.Default
     private Integer shareCount = 0;
+    
+    // 1. Danh sách Lượt thích (Likes)
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Like> likes = new ArrayList<>();
+
+    // 2. Bổ sung Danh sách Bình luận (Comments)
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("createdAt ASC") // Sắp xếp bình luận theo thứ tự thời gian
+    @Builder.Default
+    private List<Comment> comments = new ArrayList<>();
 }

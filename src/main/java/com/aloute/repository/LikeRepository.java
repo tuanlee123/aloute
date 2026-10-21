@@ -1,19 +1,16 @@
 package com.aloute.repository;
 
-import com.aloute.entity.Like;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-
-import java.util.Optional;
+import com.aloute.entity.Like;
+import com.aloute.entity.Post;
+import com.aloute.entity.User;
 
 @Repository
 public interface LikeRepository extends JpaRepository<Like, Long> {
-    // Kiểm tra user đã like bài viết chưa
-    boolean existsByUserIdAndPostId(Long userId, Long postId);
-
-    // Tìm record like để hủy like (Unlike)
-    Optional<Like> findByUserIdAndPostId(Long userId, Long postId);
-
-    // Đếm tổng số lượt like của bài viết
+    boolean existsByUserAndPost(User user, Post post);
+    Optional<Like> findByUserAndPost(User user, Post post);
+    long countByPost(Post post);
     long countByPostId(Long postId);
 }
