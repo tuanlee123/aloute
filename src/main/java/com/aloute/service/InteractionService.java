@@ -57,10 +57,10 @@ public class InteractionService {
             likeRepository.save(like);
             isLiked = true;
 
-            // Bắn thông báo nếu không phải tự like bài của chính mình
+            // Bắn thông báo chuyển hướng trực tiếp tới single-post (/post/{id})
             if (notificationService != null && !post.getUser().getId().equals(user.getId())) {
                 notificationService.create(post.getUser(), user, "đã thích bài viết của bạn",
-                        "/post/feed#post-card-" + postId);
+                        "/post/" + postId);
             }
         }
 
@@ -92,10 +92,10 @@ public class InteractionService {
 
         Comment saved = commentRepository.save(comment);
 
-        // Bắn thông báo nếu người bình luận khác chủ bài viết
+        // Bắn thông báo chuyển hướng trực tiếp tới single-post (/post/{id})
         if (notificationService != null && !post.getUser().getId().equals(user.getId())) {
             notificationService.create(post.getUser(), user, "đã bình luận về bài viết của bạn",
-                    "/post/feed#post-card-" + postId);
+                    "/post/" + postId);
         }
 
         // Chuẩn hóa tên và avatar hiển thị

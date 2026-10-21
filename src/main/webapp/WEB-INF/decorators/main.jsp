@@ -111,7 +111,7 @@ body {
 								title="Utebox Chat" data-bs-toggle="dropdown"
 								aria-expanded="false" onclick="loadConversationsList()">
 
-								<!-- Logo UB của bạn -->
+								<!-- Logo UB -->
 								<img src="<c:url value='/images/utebox-logo.png'/>" alt="UB"
 									class="rounded-circle" width="30" height="30"
 									style="object-fit: cover;">
@@ -321,7 +321,7 @@ body {
 	<!-- Script tương tác AJAX (Like & Comment) -->
 	<script src="<c:url value='/js/interaction.js' />"></script>
 
-	<!-- Script quản lý Thông báo -->
+	<!-- Script quản lý Thông báo (ĐÃ CẬP NHẬT CHUYỂN HƯỚNG TỚI SINGLE-POST) -->
 	<script>
 		function fetchNotifications() {
 			fetch('<c:url value="/api/notifications" />')
@@ -350,7 +350,17 @@ body {
 						const isRead = n.isRead != null ? n.isRead : n.read;
 						const unreadBg = !isRead ? 'background-color: #e7f3ff;' : '';
 						const avatar = n.senderAvatar ? n.senderAvatar : 'https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg';
-						const target = n.targetUrl ? '<c:url value="" />' + n.targetUrl : '<c:url value="/notifications/" />' + n.id + '/open';
+						
+						// Ưu tiên n.link hoặc n.targetUrl, nếu có postId thì trỏ thẳng đến /post/{postId}
+						let target = '';
+						const rawLink = n.link || n.targetUrl;
+						if (rawLink) {
+							target = rawLink.startsWith('http') ? rawLink : ('${pageContext.request.contextPath}' + (rawLink.startsWith('/') ? '' : '/') + rawLink);
+						} else if (n.postId) {
+							target = '${pageContext.request.contextPath}/post/' + n.postId;
+						} else {
+							target = '<c:url value="/notifications/" />' + n.id + '/open';
+						}
 
 						html += `
 							<a href="\${target}" class="d-flex align-items-center gap-3 p-2 text-decoration-none rounded-3 mb-1" style="\${unreadBg} transition: background 0.15s;">
@@ -471,7 +481,6 @@ body {
 			activeUteboxPartnerId = null;
 		}
 
-		// 3. Render tin nhắn an toàn tiếng Việt bằng textContent
 		// 3. Render tin nhắn an toàn tiếng Việt & tự động nhận diện link bài viết
         function appendUteboxMessage(msg, isMe) {
             const body = document.getElementById('uteboxBody');
