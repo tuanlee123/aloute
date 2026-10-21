@@ -30,276 +30,293 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AuthController {
 
-    private final AuthService authService;
-    private final PostRepository postRepository;
-    private final UserRepository userRepository;
-    private final FriendshipService friendshipService; // THÊM MỚI: Xử lý quan hệ bạn bè thật từ DB
+	private final AuthService authService;
+	private final PostRepository postRepository;
+	private final UserRepository userRepository;
+	private final FriendshipService friendshipService; // THÊM MỚI: Xử lý quan hệ bạn bè thật từ DB
 
-    // --- 1. ĐĂNG KÝ ---
-    @GetMapping("/register")
-    public String showRegisterForm(Model model, HttpSession session) {
-        if (session != null && session.getAttribute("currentUser") != null) {
-            return "redirect:/";
-        }
-        model.addAttribute("registerDTO", new RegisterDTO());
-        return "auth/register";
-    }
+	// --- 1. ĐĂNG KÝ ---
+	@GetMapping("/register")
+	public String showRegisterForm(Model model, HttpSession session) {
+		if (session != null && session.getAttribute("currentUser") != null) {
+			return "redirect:/";
+		}
+		model.addAttribute("registerDTO", new RegisterDTO());
+		return "auth/register";
+	}
 
-    @PostMapping("/register")
-    public String processRegister(@ModelAttribute("registerDTO") RegisterDTO registerDTO, Model model) {
-        try {
-            authService.register(registerDTO);
-            return "redirect:/verify-otp?email=" + registerDTO.getEmail();
-        } catch (IllegalArgumentException e) {
-            model.addAttribute("error", e.getMessage());
-            return "auth/register";
-        }
-    }
+	@PostMapping("/register")
+	public String processRegister(@ModelAttribute("registerDTO") RegisterDTO registerDTO, Model model) {
+		try {
+			authService.register(registerDTO);
+			return "redirect:/verify-otp?email=" + registerDTO.getEmail();
+		} catch (IllegalArgumentException e) {
+			model.addAttribute("error", e.getMessage());
+			return "auth/register";
+		}
+	}
 
-    // --- 2. XÁC THỰC KÍCH HOẠT OTP ---
-    @GetMapping("/verify-otp")
-    public String showVerifyOtpForm(@RequestParam("email") String email, Model model) {
-        VerifyOtpDTO dto = new VerifyOtpDTO();
-        dto.setEmail(email);
-        model.addAttribute("verifyOtpDTO", dto);
-        return "auth/verify-otp";
-    }
+	// --- 2. XÁC THỰC KÍCH HOẠT OTP ---
+	@GetMapping("/verify-otp")
+	public String showVerifyOtpForm(@RequestParam("email") String email, Model model) {
+		VerifyOtpDTO dto = new VerifyOtpDTO();
+		dto.setEmail(email);
+		model.addAttribute("verifyOtpDTO", dto);
+		return "auth/verify-otp";
+	}
 
-    @PostMapping("/verify-otp")
-    public String processVerifyOtp(@ModelAttribute("verifyOtpDTO") VerifyOtpDTO dto, Model model) {
-        try {
-            authService.verifyAccount(dto.getEmail(), dto.getOtp());
-            return "redirect:/login?activated=true";
-        } catch (IllegalArgumentException e) {
-            model.addAttribute("error", e.getMessage());
-            return "auth/verify-otp";
-        }
-    }
+	@PostMapping("/verify-otp")
+	public String processVerifyOtp(@ModelAttribute("verifyOtpDTO") VerifyOtpDTO dto, Model model) {
+		try {
+			authService.verifyAccount(dto.getEmail(), dto.getOtp());
+			return "redirect:/login?activated=true";
+		} catch (IllegalArgumentException e) {
+			model.addAttribute("error", e.getMessage());
+			return "auth/verify-otp";
+		}
+	}
 
-    @GetMapping("/resend-otp")
-    public String resendOtp(@RequestParam("email") String email, Model model) {
-        try {
-            authService.resendActivationOtp(email);
-            return "redirect:/verify-otp?email=" + email + "&resent=true";
-        } catch (IllegalArgumentException e) {
-            model.addAttribute("error", e.getMessage());
-            return "auth/verify-otp";
-        }
-    }
+	@GetMapping("/resend-otp")
+	public String resendOtp(@RequestParam("email") String email, Model model) {
+		try {
+			authService.resendActivationOtp(email);
+			return "redirect:/verify-otp?email=" + email + "&resent=true";
+		} catch (IllegalArgumentException e) {
+			model.addAttribute("error", e.getMessage());
+			return "auth/verify-otp";
+		}
+	}
 
-    // --- 3. ĐĂNG NHẬP ---
-    @GetMapping("/login")
-    public String showLoginForm(Model model, HttpSession session) {
-        if (session != null && session.getAttribute("currentUser") != null) {
-            return "redirect:/";
-        }
-        model.addAttribute("loginDTO", new LoginDTO());
-        return "auth/login";
-    }
+	// --- 3. ĐĂNG NHẬP ---
+	@GetMapping("/login")
+	public String showLoginForm(Model model, HttpSession session) {
+		if (session != null && session.getAttribute("currentUser") != null) {
+			return "redirect:/";
+		}
+		model.addAttribute("loginDTO", new LoginDTO());
+		return "auth/login";
+	}
 
-    @PostMapping("/login")
-    public String processLogin(@ModelAttribute("loginDTO") LoginDTO dto, HttpSession session, Model model) {
-        try {
-            User user = authService.login(dto);
-            session.setAttribute("currentUser", user);
-            return "redirect:/";
-        } catch (IllegalArgumentException e) {
-            model.addAttribute("error", e.getMessage());
-            return "auth/login";
-        }
-    }
+	@PostMapping("/login")
+	public String processLogin(@ModelAttribute("loginDTO") LoginDTO dto, HttpSession session, Model model) {
+		try {
+			User user = authService.login(dto);
+			session.setAttribute("currentUser", user);
+			return "redirect:/";
+		} catch (IllegalArgumentException e) {
+			model.addAttribute("error", e.getMessage());
+			return "auth/login";
+		}
+	}
 
-    // --- 4. ĐĂNG XUẤT ---
-    @GetMapping("/logout")
-    public String logout(HttpServletRequest request, HttpServletResponse response) {
-        HttpSession session = request.getSession(false);
-        if (session != null) {
-            session.removeAttribute("currentUser");
-            session.invalidate();
-        }
+	// --- 4. ĐĂNG XUẤT ---
+	@GetMapping("/logout")
+	public String logout(HttpServletRequest request, HttpServletResponse response) {
+		HttpSession session = request.getSession(false);
+		if (session != null) {
+			session.removeAttribute("currentUser");
+			session.invalidate();
+		}
 
-        Cookie cookie = new Cookie("JSESSIONID", null);
-        cookie.setPath(request.getContextPath().isEmpty() ? "/" : request.getContextPath());
-        cookie.setHttpOnly(true);
-        cookie.setMaxAge(0);
-        response.addCookie(cookie);
+		Cookie cookie = new Cookie("JSESSIONID", null);
+		cookie.setPath(request.getContextPath().isEmpty() ? "/" : request.getContextPath());
+		cookie.setHttpOnly(true);
+		cookie.setMaxAge(0);
+		response.addCookie(cookie);
 
-        response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-        response.setHeader("Pragma", "no-cache");
-        response.setDateHeader("Expires", 0);
+		response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+		response.setHeader("Pragma", "no-cache");
+		response.setDateHeader("Expires", 0);
 
-        return "redirect:/login?logout=true";
-    }
+		return "redirect:/login?logout=true";
+	}
 
-    // --- 5. QUÊN MẬT KHẨU ---
-    @GetMapping("/forgot-password")
-    public String showForgotPasswordForm() {
-        return "auth/forgot-password";
-    }
+	// --- 5. QUÊN MẬT KHẨU ---
+	@GetMapping("/forgot-password")
+	public String showForgotPasswordForm() {
+		return "auth/forgot-password";
+	}
 
-    @PostMapping("/forgot-password")
-    public String processForgotPassword(@RequestParam("email") String email) {
-        authService.sendForgotPasswordOtp(email);
-        return "redirect:/reset-password?email=" + email;
-    }
+	@PostMapping("/forgot-password")
+	public String processForgotPassword(@RequestParam("email") String email) {
+		authService.sendForgotPasswordOtp(email);
+		return "redirect:/reset-password?email=" + email;
+	}
 
-    @GetMapping("/reset-password")
-    public String showResetPasswordForm(@RequestParam("email") String email, Model model) {
-        ResetPasswordDTO dto = new ResetPasswordDTO();
-        dto.setEmail(email);
-        model.addAttribute("resetPasswordDTO", dto);
-        return "auth/reset-password";
-    }
+	@GetMapping("/reset-password")
+	public String showResetPasswordForm(@RequestParam("email") String email, Model model) {
+		ResetPasswordDTO dto = new ResetPasswordDTO();
+		dto.setEmail(email);
+		model.addAttribute("resetPasswordDTO", dto);
+		return "auth/reset-password";
+	}
 
-    @PostMapping("/reset-password")
-    public String processResetPassword(@ModelAttribute("resetPasswordDTO") ResetPasswordDTO dto, Model model) {
-        try {
-            authService.resetPassword(dto);
-            return "redirect:/login?resetSuccess=true";
-        } catch (IllegalArgumentException e) {
-            model.addAttribute("error", e.getMessage());
-            return "auth/reset-password";
-        }
-    }
+	@PostMapping("/reset-password")
+	public String processResetPassword(@ModelAttribute("resetPasswordDTO") ResetPasswordDTO dto, Model model) {
+		try {
+			authService.resetPassword(dto);
+			return "redirect:/login?resetSuccess=true";
+		} catch (IllegalArgumentException e) {
+			model.addAttribute("error", e.getMessage());
+			return "auth/reset-password";
+		}
+	}
 
-    // ==========================================
-    // 1. TRANG CÁ NHÂN (/profile) - HỖ TRỢ XEM PROFILE BẤT KỲ USER NÀO & DỮ LIỆU BẠN BÈ THẬT
-    // ==========================================
-    @GetMapping("/profile")
-    public String showProfilePage(@RequestParam(value = "userId", required = false) Long userId,
-                                  HttpSession session, 
-                                  Model model) {
-        User currentUser = (session != null) ? (User) session.getAttribute("currentUser") : null;
-        if (currentUser == null) {
-            return "redirect:/login?requiredAuth=true";
-        }
+	// ==========================================
+	// 1. TRANG CÁ NHÂN (/profile) - HỖ TRỢ XEM PROFILE BẤT KỲ USER NÀO & DỮ LIỆU
+	// BẠN BÈ THẬT
+	// ==========================================
+	// ==========================================
+	// TRANG CÁ NHÂN (/profile) - ĐÃ BẢO MẬT BÀI VIẾT RIÊNG TƯ & ĐẦY ĐỦ BẠN BÈ CHO
+	// MODAL CHIA SẺ
+	// ==========================================
+	@GetMapping("/profile")
+	public String showProfilePage(@RequestParam(value = "userId", required = false) Long userId, HttpSession session,
+			Model model) {
+		User currentUser = (session != null) ? (User) session.getAttribute("currentUser") : null;
+		if (currentUser == null) {
+			return "redirect:/login?requiredAuth=true";
+		}
 
-        // Xác định trang profile cần hiển thị: của người khác hay của chính mình
-        User profileUser = currentUser;
-        if (userId != null && !userId.equals(currentUser.getId())) {
-            profileUser = userRepository.findById(userId).orElse(currentUser);
-        }
+		// Xác định trang profile cần hiển thị
+		User profileUser = currentUser;
+		if (userId != null && !userId.equals(currentUser.getId())) {
+			profileUser = userRepository.findById(userId).orElse(currentUser);
+		}
 
-        // Lấy danh sách bài viết của user tương ứng
-        List<Post> userPosts = postRepository.findByUserIdOrderByCreatedAtDesc(profileUser.getId());
+		boolean isOwner = profileUser.getId().equals(currentUser.getId());
+		List<Post> userPosts;
 
-        // Lấy danh sách bạn bè thật từ DB của người đang được xem trang cá nhân
-        List<User> userFriends = friendshipService.getFriends(profileUser.getId());
-        
-        // Tính số lượng bạn chung giữa người dùng đang đăng nhập và từng người bạn trong danh sách
-        Map<Long, Integer> mutualCounts = new HashMap<>();
-        for (User f : userFriends) {
-            mutualCounts.put(f.getId(), friendshipService.countMutualFriends(currentUser.getId(), f.getId()));
-        }
+		if (isOwner) {
+			// Chính chủ: Thấy tất cả bài viết của mình
+			userPosts = postRepository.findByUserIdOrderByCreatedAtDesc(profileUser.getId());
+		} else {
+			// Người khác xem: Kiểm tra trạng thái kết bạn
+			String friendshipStatus = friendshipService.getFriendshipStatus(currentUser.getId(), profileUser.getId());
+			int mutualWithProfileUser = friendshipService.countMutualFriends(currentUser.getId(), profileUser.getId());
+			model.addAttribute("friendshipStatus", friendshipStatus);
+			model.addAttribute("mutualWithProfileUser", mutualWithProfileUser);
 
-        // Trạng thái quan hệ bạn bè với chủ trang cá nhân (nếu đang xem người khác)
-        boolean isOwner = profileUser.getId().equals(currentUser.getId());
-        if (!isOwner) {
-            String friendshipStatus = friendshipService.getFriendshipStatus(currentUser.getId(), profileUser.getId());
-            int mutualWithProfileUser = friendshipService.countMutualFriends(currentUser.getId(), profileUser.getId());
-            model.addAttribute("friendshipStatus", friendshipStatus);
-            model.addAttribute("mutualWithProfileUser", mutualWithProfileUser);
-        }
+			if ("FRIENDS".equalsIgnoreCase(friendshipStatus)) {
+				// Đã là bạn bè: Thấy bài PUBLIC và FRIENDS (Ẩn PRIVATE)
+				userPosts = postRepository.findPostsForFriends(profileUser.getId());
+			} else {
+				// Người lạ: Chỉ thấy bài PUBLIC
+				userPosts = postRepository.findPublicPosts(profileUser.getId());
+			}
+		}
 
-        model.addAttribute("user", profileUser);
-        model.addAttribute("posts", userPosts);
-        model.addAttribute("isOwner", isOwner);
-        model.addAttribute("userFriends", userFriends);
-        model.addAttribute("totalFriendsCount", userFriends.size());
-        model.addAttribute("mutualCounts", mutualCounts);
+		// Danh sách bạn bè của trang cá nhân đang xem
+		List<User> userFriends = friendshipService.getFriends(profileUser.getId());
 
-        return "profile";
-    }
+		// Danh sách bạn bè của người đang đăng nhập (Đổ vào modal "Gửi bằng Messenger")
+		List<User> myFriends = friendshipService.getFriends(currentUser.getId());
 
-    // Cập nhật Avatar qua modal
-    @PostMapping("/profile/update-avatar")
-    public String updateAvatar(@RequestParam("avatarUrl") String avatarUrl, 
-                               HttpSession session, 
-                               RedirectAttributes redirectAttributes) {
-        User currentUser = (session != null) ? (User) session.getAttribute("currentUser") : null;
-        if (currentUser == null) return "redirect:/login";
+		// Tính số bạn chung
+		Map<Long, Integer> mutualCounts = new HashMap<>();
+		for (User f : userFriends) {
+			mutualCounts.put(f.getId(), friendshipService.countMutualFriends(currentUser.getId(), f.getId()));
+		}
 
-        try {
-            User updatedUser = authService.updateAvatar(currentUser.getId(), avatarUrl);
-            session.setAttribute("currentUser", updatedUser);
-            redirectAttributes.addFlashAttribute("successMessage", "Cập nhật ảnh đại diện thành công!");
-        } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
-        }
-        return "redirect:/profile";
-    }
+		model.addAttribute("user", profileUser);
+		model.addAttribute("posts", userPosts);
+		model.addAttribute("isOwner", isOwner);
+		model.addAttribute("userFriends", userFriends);
+		model.addAttribute("myFriends", myFriends);
+		model.addAttribute("totalFriendsCount", userFriends.size());
+		model.addAttribute("mutualCounts", mutualCounts);
 
-    // Cập nhật Ảnh bìa qua modal
-    @PostMapping("/profile/update-cover")
-    public String updateCover(@RequestParam("coverUrl") String coverUrl, 
-                              HttpSession session, 
-                              RedirectAttributes redirectAttributes) {
-        User currentUser = (session != null) ? (User) session.getAttribute("currentUser") : null;
-        if (currentUser == null) return "redirect:/login";
+		return "profile";
+	}
 
-        try {
-            User updatedUser = authService.updateCoverImage(currentUser.getId(), coverUrl);
-            session.setAttribute("currentUser", updatedUser);
-            redirectAttributes.addFlashAttribute("successMessage", "Cập nhật ảnh bìa thành công!");
-        } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
-        }
-        return "redirect:/profile";
-    }
+	// Cập nhật Avatar qua modal
+	@PostMapping("/profile/update-avatar")
+	public String updateAvatar(@RequestParam("avatarUrl") String avatarUrl, HttpSession session,
+			RedirectAttributes redirectAttributes) {
+		User currentUser = (session != null) ? (User) session.getAttribute("currentUser") : null;
+		if (currentUser == null)
+			return "redirect:/login";
 
-    // ==========================================
-    // 2. TRANG CÀI ĐẶT TỔNG HỢP (/settings)
-    // ==========================================
-    @GetMapping("/settings")
-    public String showSettingsPage(@RequestParam(value = "tab", defaultValue = "account") String tab,
-                                   HttpSession session, 
-                                   Model model) {
-        User currentUser = (session != null) ? (User) session.getAttribute("currentUser") : null;
-        if (currentUser == null) {
-            return "redirect:/login?requiredAuth=true";
-        }
+		try {
+			User updatedUser = authService.updateAvatar(currentUser.getId(), avatarUrl);
+			session.setAttribute("currentUser", updatedUser);
+			redirectAttributes.addFlashAttribute("successMessage", "Cập nhật ảnh đại diện thành công!");
+		} catch (Exception e) {
+			redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+		}
+		return "redirect:/profile";
+	}
 
-        UpdateProfileDTO profileDTO = new UpdateProfileDTO();
-        profileDTO.setFullName(currentUser.getFullName());
-        
-        model.addAttribute("user", currentUser);
-        model.addAttribute("profileDTO", profileDTO);
-        model.addAttribute("passwordDTO", new ChangePasswordDTO());
-        model.addAttribute("activeTab", tab);
+	// Cập nhật Ảnh bìa qua modal
+	@PostMapping("/profile/update-cover")
+	public String updateCover(@RequestParam("coverUrl") String coverUrl, HttpSession session,
+			RedirectAttributes redirectAttributes) {
+		User currentUser = (session != null) ? (User) session.getAttribute("currentUser") : null;
+		if (currentUser == null)
+			return "redirect:/login";
 
-        return "settings";
-    }
+		try {
+			User updatedUser = authService.updateCoverImage(currentUser.getId(), coverUrl);
+			session.setAttribute("currentUser", updatedUser);
+			redirectAttributes.addFlashAttribute("successMessage", "Cập nhật ảnh bìa thành công!");
+		} catch (Exception e) {
+			redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+		}
+		return "redirect:/profile";
+	}
 
-    @PostMapping("/settings/update-account")
-    public String updateAccountInfo(@ModelAttribute("profileDTO") UpdateProfileDTO profileDTO,
-                                    HttpSession session,
-                                    RedirectAttributes redirectAttributes) {
-        User currentUser = (session != null) ? (User) session.getAttribute("currentUser") : null;
-        if (currentUser == null) return "redirect:/login";
+	// ==========================================
+	// 2. TRANG CÀI ĐẶT TỔNG HỢP (/settings)
+	// ==========================================
+	@GetMapping("/settings")
+	public String showSettingsPage(@RequestParam(value = "tab", defaultValue = "account") String tab,
+			HttpSession session, Model model) {
+		User currentUser = (session != null) ? (User) session.getAttribute("currentUser") : null;
+		if (currentUser == null) {
+			return "redirect:/login?requiredAuth=true";
+		}
 
-        try {
-            User updatedUser = authService.updateProfile(currentUser.getId(), profileDTO.getFullName());
-            session.setAttribute("currentUser", updatedUser);
-            redirectAttributes.addFlashAttribute("accountSuccess", "Đã cập nhật thông tin tài khoản thành công!");
-        } catch (IllegalArgumentException e) {
-            redirectAttributes.addFlashAttribute("accountError", e.getMessage());
-        }
-        return "redirect:/settings?tab=account";
-    }
+		UpdateProfileDTO profileDTO = new UpdateProfileDTO();
+		profileDTO.setFullName(currentUser.getFullName());
 
-    @PostMapping("/settings/change-password")
-    public String changePasswordInSettings(@ModelAttribute("passwordDTO") ChangePasswordDTO passwordDTO,
-                                          HttpSession session,
-                                          RedirectAttributes redirectAttributes) {
-        User currentUser = (session != null) ? (User) session.getAttribute("currentUser") : null;
-        if (currentUser == null) return "redirect:/login";
+		model.addAttribute("user", currentUser);
+		model.addAttribute("profileDTO", profileDTO);
+		model.addAttribute("passwordDTO", new ChangePasswordDTO());
+		model.addAttribute("activeTab", tab);
 
-        try {
-            authService.changePassword(currentUser.getId(), passwordDTO);
-            redirectAttributes.addFlashAttribute("passwordSuccess", "Đổi mật khẩu thành công!");
-        } catch (IllegalArgumentException e) {
-            redirectAttributes.addFlashAttribute("passwordError", e.getMessage());
-        }
-        return "redirect:/settings?tab=security";
-    }
+		return "settings";
+	}
+
+	@PostMapping("/settings/update-account")
+	public String updateAccountInfo(@ModelAttribute("profileDTO") UpdateProfileDTO profileDTO, HttpSession session,
+			RedirectAttributes redirectAttributes) {
+		User currentUser = (session != null) ? (User) session.getAttribute("currentUser") : null;
+		if (currentUser == null)
+			return "redirect:/login";
+
+		try {
+			User updatedUser = authService.updateProfile(currentUser.getId(), profileDTO.getFullName());
+			session.setAttribute("currentUser", updatedUser);
+			redirectAttributes.addFlashAttribute("accountSuccess", "Đã cập nhật thông tin tài khoản thành công!");
+		} catch (IllegalArgumentException e) {
+			redirectAttributes.addFlashAttribute("accountError", e.getMessage());
+		}
+		return "redirect:/settings?tab=account";
+	}
+
+	@PostMapping("/settings/change-password")
+	public String changePasswordInSettings(@ModelAttribute("passwordDTO") ChangePasswordDTO passwordDTO,
+			HttpSession session, RedirectAttributes redirectAttributes) {
+		User currentUser = (session != null) ? (User) session.getAttribute("currentUser") : null;
+		if (currentUser == null)
+			return "redirect:/login";
+
+		try {
+			authService.changePassword(currentUser.getId(), passwordDTO);
+			redirectAttributes.addFlashAttribute("passwordSuccess", "Đổi mật khẩu thành công!");
+		} catch (IllegalArgumentException e) {
+			redirectAttributes.addFlashAttribute("passwordError", e.getMessage());
+		}
+		return "redirect:/settings?tab=security";
+	}
 }
