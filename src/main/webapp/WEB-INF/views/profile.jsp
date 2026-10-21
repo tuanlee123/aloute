@@ -149,6 +149,22 @@
             background-color: #f0f2f5;
             color: #1877f2;
         }
+
+        /* KHỐI BẠN BÈ PROFILE */
+        .friend-grid-card {
+            text-decoration: none;
+            display: block;
+            transition: transform 0.15s ease;
+        }
+        .friend-grid-card:hover {
+            transform: scale(1.03);
+        }
+        .friend-grid-img {
+            aspect-ratio: 1 / 1;
+            object-fit: cover;
+            border-radius: 8px;
+            background: #f0f2f5;
+        }
     </style>
 </head>
 
@@ -171,17 +187,18 @@
     <div class="bg-white rounded-bottom shadow-sm mb-3">
         <!-- Ảnh bìa -->
         <div class="profile-cover" id="coverContainer">
-            <c:if test="${sessionScope.currentUser != null && sessionScope.currentUser.id == user.id}">
+            <c:if test="${isOwner || (sessionScope.currentUser != null && sessionScope.currentUser.id == user.id)}">
                 <button class="btn btn-sm btn-light shadow-sm fw-semibold btn-change-cover"
                     data-bs-toggle="modal" data-bs-target="#coverModal">
                     <i class="bi bi-camera-fill me-1"></i> Chỉnh sửa ảnh bìa
                 </button>
             </c:if>
+
             <!-- Avatar tròn -->
             <div class="profile-avatar-wrapper">
                 <img src="${not empty user.avatar ? user.avatar : 'https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg'}"
                     alt="Avatar" class="rounded-circle profile-avatar shadow-sm" id="avatarDisplay">
-                <c:if test="${sessionScope.currentUser != null && sessionScope.currentUser.id == user.id}">
+                <c:if test="${isOwner || (sessionScope.currentUser != null && sessionScope.currentUser.id == user.id)}">
                     <button class="btn btn-sm btn-change-avatar" data-bs-toggle="modal"
                         data-bs-target="#avatarModal" title="Đổi ảnh đại diện">
                         <i class="bi bi-camera-fill text-dark fs-6"></i>
@@ -191,13 +208,85 @@
         </div>
 
         <div class="profile-header-info">
-            <div class="border-bottom pb-3">
-                <h2 class="fw-bold mb-0 text-dark">${user.fullName != null ? user.fullName : user.username}</h2>
+            <div class="border-bottom pb-3 d-flex justify-content-between align-items-end flex-wrap gap-2">
+                <div>
+                    <h2 class="fw-bold mb-1 text-dark">${user.fullName != null ? user.fullName : user.username}</h2>
+                    <c:if test="${!isOwner && mutualWithProfileUser > 0}">
+                        <div class="text-secondary small">
+                            <i class="bi bi-people me-1"></i>${mutualWithProfileUser} bạn chung
+                        </div>
+                    </c:if>
+                </div>
+
+                <!-- NÚT TƯƠNG TÁC KHI XEM TRANG CÁ NHÂN NGƯỜI KHÁC -->
+                <c:if test="${!isOwner && (sessionScope.currentUser == null || sessionScope.currentUser.id != user.id)}">
+                    <div>
+                        <c:choose>
+                            <%-- DROPDOWN BẠN BÈ & HỦY KẾT BẠN --%>
+                            <c:when test="${friendshipStatus == 'FRIENDS'}">
+                                <div class="dropdown d-inline-block">
+                                    <button class="btn btn-light border fw-semibold rounded-pill px-3 shadow-sm d-flex align-items-center gap-2"
+                                            type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="bi bi-person-check-fill text-dark"></i>
+                                        <span>Bạn bè</span>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-4 py-2 mt-1" style="min-width: 230px;">
+                                        <li>
+                                            <a class="dropdown-item py-2 d-flex align-items-center gap-2 text-dark" href="javascript:void(0)">
+                                                <i class="bi bi-star fs-5 text-secondary"></i>
+                                                <span>Yêu thích</span>
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item py-2 d-flex align-items-center gap-2 text-dark" href="javascript:void(0)">
+                                                <i class="bi bi-person-gear fs-5 text-secondary"></i>
+                                                <span>Chỉnh sửa danh sách bạn bè</span>
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item py-2 d-flex align-items-center gap-2 text-dark" href="javascript:void(0)">
+                                                <i class="bi bi-x-square fs-5 text-secondary"></i>
+                                                <span>Bỏ theo dõi</span>
+                                            </a>
+                                        </li>
+                                        <li><hr class="dropdown-divider my-1"></li>
+                                        <li>
+                                            <form action="<c:url value='/friends/unfriend/${user.id}'/>" method="post" class="m-0"
+                                                  onsubmit="return confirm('Bạn có chắc chắn muốn hủy kết bạn với ${user.fullName}?');">
+                                                <button type="submit" class="dropdown-item py-2 d-flex align-items-center gap-2 text-danger border-0 bg-transparent w-100 text-start">
+                                                    <i class="bi bi-person-x fs-5"></i>
+                                                    <span class="fw-semibold">Hủy kết bạn</span>
+                                                </button>
+                                            </form>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </c:when>
+                            <c:when test="${friendshipStatus == 'SENT'}">
+                                <button class="btn btn-light border fw-semibold rounded-pill px-3 shadow-sm" disabled>
+                                    <i class="bi bi-clock-history text-secondary me-1"></i>Đã gửi lời mời
+                                </button>
+                            </c:when>
+                            <c:when test="${friendshipStatus == 'RECEIVED'}">
+                                <a href="<c:url value='/friends?tab=requests'/>" class="btn btn-primary fw-semibold rounded-pill px-3 shadow-sm">
+                                    <i class="bi bi-person-check-fill me-1"></i>Phản hồi lời mời
+                                </a>
+                            </c:when>
+                            <c:otherwise>
+                                <form action="<c:url value='/friends/add/${user.id}'/>" method="post" class="m-0">
+                                    <button type="submit" class="btn btn-primary fw-semibold rounded-pill px-3 shadow-sm">
+                                        <i class="bi bi-person-plus-fill me-1"></i>Thêm bạn bè
+                                    </button>
+                                </form>
+                            </c:otherwise>
+                        </c:choose>
+                    </div>
+                </c:if>
             </div>
 
             <div class="d-flex gap-4 pt-2 fw-semibold">
                 <a href="#" class="text-primary text-decoration-none border-bottom border-primary border-3 pb-2">Bài viết</a>
-                <a href="#" class="text-muted text-decoration-none pb-2">Bạn bè</a>
+                <a href="<c:url value='/friends?userId=${user.id}'/>" class="text-muted text-decoration-none pb-2">Bạn bè (${not empty totalFriendsCount ? totalFriendsCount : 0})</a>
                 <a href="#" class="text-muted text-decoration-none pb-2">Ảnh</a>
             </div>
         </div>
@@ -205,8 +294,9 @@
 
     <!-- KHU VỰC 2 CỘT -->
     <div class="row g-3">
-        <!-- Cột trái: Thông tin hiển thị -->
+        <!-- Cột trái: Thông tin hiển thị & Lưới bạn bè -->
         <div class="col-lg-5">
+            <!-- 1. Card Giới thiệu -->
             <div class="card border-0 shadow-sm rounded-3 p-3">
                 <h5 class="fw-bold mb-3">Giới thiệu</h5>
                 <div class="mb-2 text-secondary small">
@@ -220,24 +310,63 @@
                 <div class="mb-3 text-secondary small">
                     <i class="bi bi-calendar-check fs-6 me-2 text-dark"></i>Tham gia: Tháng 10, 2026
                 </div>
-                <c:if test="${sessionScope.currentUser != null && sessionScope.currentUser.id == user.id}">
+                <c:if test="${isOwner || (sessionScope.currentUser != null && sessionScope.currentUser.id == user.id)}">
                     <a href="<c:url value='/settings?tab=account'/>" class="btn btn-light w-100 fw-semibold small border">
                         Chỉnh sửa chi tiết
                     </a>
                 </c:if>
             </div>
+
+            <!-- 2. Card Bạn bè chuẩn Facebook -->
+            <div class="card border-0 shadow-sm rounded-3 p-3 mt-3">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <h5 class="fw-bold mb-0">Bạn bè</h5>
+                    <a href="<c:url value='/friends?userId=${user.id}'/>" class="text-primary text-decoration-none small fw-semibold">
+                        Xem tất cả bạn bè
+                    </a>
+                </div>
+                <div class="text-secondary small mb-3">${not empty totalFriendsCount ? totalFriendsCount : 0} người bạn</div>
+
+                <c:choose>
+                    <c:when test="${not empty userFriends}">
+                        <div class="row row-cols-3 g-2">
+                            <c:forEach var="fr" items="${userFriends}" end="8">
+                                <div class="col">
+                                    <a href="<c:url value='/profile?userId=${fr.id}'/>" class="friend-grid-card">
+                                        <img src="${empty fr.avatar ? 'https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg' : fr.avatar}" 
+                                             class="friend-grid-img w-100 border shadow-sm" alt="Avatar">
+                                        <div class="text-dark fw-semibold text-truncate mt-1" style="font-size: 13px;" title="${fr.fullName}">
+                                            ${fr.fullName}
+                                        </div>
+                                        <div class="text-muted text-truncate" style="font-size: 11px;">
+                                            ${mutualCounts[fr.id] != null ? mutualCounts[fr.id] : 0} bạn chung
+                                        </div>
+                                    </a>
+                                </div>
+                            </c:forEach>
+                        </div>
+                    </c:when>
+                    <c:otherwise>
+                        <div class="text-center py-4 text-muted small">
+                            <i class="bi bi-people fs-3 opacity-50 d-block mb-1"></i>
+                            Chưa có người bạn nào
+                        </div>
+                    </c:otherwise>
+                </c:choose>
+            </div>
         </div>
 
         <!-- Cột phải: Khung đăng bài & Danh sách bài viết -->
         <div class="col-lg-7">
-            <!-- KHUNG ĐĂNG BÀI VIẾT (Chỉ hiện khi đang ở trang cá nhân của chính mình) -->
-            <c:if test="${sessionScope.currentUser != null && sessionScope.currentUser.id == user.id}">
+            <!-- KHUNG ĐĂNG BÀI VIẾT (CHỈ HIỂN THỊ KHI LÀ CHÍNH CHỦ) -->
+            <c:if test="${isOwner || (sessionScope.currentUser != null && sessionScope.currentUser.id == user.id)}">
                 <div class="card shadow-sm border-0 mb-3 rounded-3">
                     <div class="card-header bg-white fw-bold py-3 border-0">
                         <i class="bi bi-pencil-square me-2 text-primary"></i>Tạo bài viết mới
                     </div>
                     <div class="card-body pt-0">
                         <form action="${pageContext.request.contextPath}/post/create" method="post" enctype="multipart/form-data">
+                            <input type="hidden" name="redirectUrl" value="/profile">
                             <div class="mb-3">
                                 <textarea class="form-control border-light-subtle" name="content" rows="3"
                                     placeholder="${user.fullName} ơi, bạn đang nghĩ gì thế?..." required></textarea>
@@ -276,7 +405,7 @@
                     <div class="card shadow-sm border-0 rounded-3" id="post-card-${p.id}">
                         <div class="card-body">
                             <!-- Tác giả, Ngày đăng & Menu 3 chấm -->
-                            <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
                                 <div class="d-flex align-items-center">
                                     <a href="${pageContext.request.contextPath}/profile?userId=${p.user.id}" class="text-decoration-none">
                                         <img src="${empty p.user.avatar ? 'https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg' : p.user.avatar}"
@@ -326,6 +455,7 @@
                                             <li>
                                                 <form action="${pageContext.request.contextPath}/post/delete/${p.id}" method="post"
                                                     onsubmit="return confirm('Bạn có chắc chắn muốn xóa bài viết này không?');" class="m-0">
+                                                    <input type="hidden" name="redirectUrl" value="/profile${!isOwner ? '?userId='.concat(user.id) : ''}">
                                                     <button type="submit" class="dropdown-item py-2 text-danger border-0 bg-transparent w-100 text-start">
                                                         <i class="bi bi-trash me-2"></i>Xóa bài viết
                                                     </button>
@@ -337,9 +467,7 @@
                             </div>
 
                             <!-- Nội dung bài viết -->
-                            <div class="card-text text-dark mb-3" style="white-space: pre-line;">
-                                <c:out value="${p.content}" />
-                            </div>
+                            <p class="card-text text-dark mb-2" style="white-space: pre-line;"><c:out value="${p.content}" /></p>
 
                             <!-- Lưới ảnh đính kèm -->
                             <c:if test="${not empty p.images}">
@@ -434,7 +562,7 @@
                     <div class="card border-0 shadow-sm rounded-3 p-4 text-center text-muted">
                         <i class="bi bi-file-earmark-post fs-1 text-secondary opacity-50"></i>
                         <p class="mt-2 mb-0 fw-semibold">Chưa có bài viết nào</p>
-                        <small>Những bài viết và bài chia sẻ của bạn sẽ xuất hiện tại đây.</small>
+                        <small>Những bài viết và bài chia sẻ sẽ xuất hiện tại đây.</small>
                     </div>
                 </c:if>
             </div>
@@ -681,4 +809,53 @@
         })
         .catch(() => alert('Có lỗi xảy ra khi lưu bài viết!'));
     }
+
+    const profileDt = new DataTransfer();
+    function addSelectedFiles(input) {
+        if (input.files && input.files.length > 0) {
+            for (let i = 0; i < input.files.length; i++) {
+                profileDt.items.add(input.files[i]);
+            }
+            syncPostFiles();
+            input.value = '';
+        }
+    }
+    function removeSelectedFile(index) {
+        profileDt.items.remove(index);
+        syncPostFiles();
+    }
+    function syncPostFiles() {
+        const postImages = document.getElementById('postImages');
+        if (postImages) postImages.files = profileDt.files;
+        renderImagePreviews();
+    }
+    function renderImagePreviews() {
+        const container = document.getElementById('imagePreviewContainer');
+        if (!container) return;
+        container.innerHTML = '';
+        if (profileDt.files.length > 0) {
+            container.classList.remove('d-none');
+            Array.from(profileDt.files).forEach((file, index) => {
+                const wrap = document.createElement('div');
+                wrap.style.cssText = 'position:relative; display:inline-block; width:70px; height:70px;';
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(file);
+                img.className = 'rounded border shadow-sm w-100 h-100';
+                img.style.objectFit = 'cover';
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-danger btn-sm rounded-circle';
+                btn.style.cssText = 'position:absolute; top:-5px; right:-5px; width:18px; height:18px; padding:0; line-height:16px; font-size:12px;';
+                btn.innerHTML = '&times;';
+                btn.onclick = () => removeSelectedFile(index);
+                wrap.appendChild(img);
+                wrap.appendChild(btn);
+                container.appendChild(wrap);
+            });
+        } else {
+            container.classList.add('d-none');
+        }
+    }
 </script>
+
+<script src="${pageContext.request.contextPath}/js/interaction.js"></script>

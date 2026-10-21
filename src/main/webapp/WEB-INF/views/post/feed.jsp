@@ -304,37 +304,42 @@
     </style>
 </head>
 
+<c:set var="loggedUser" value="${not empty sessionScope.currentUser ? sessionScope.currentUser : sessionScope.user}" />
+
 <div class="container my-4" style="max-width: 680px;">
 
     <!-- KHUNG ĐĂNG BÀI VIẾT -->
     <div class="card shadow-sm border-0 mb-4 rounded-3">
-        <div class="card-header bg-white fw-bold py-3 border-0">
-            <i class="bi bi-pencil-square me-2 text-primary"></i>Tạo bài viết mới
-        </div>
-        <div class="card-body pt-0">
+        <div class="card-body p-3">
             <form action="${pageContext.request.contextPath}/post/create" method="post" enctype="multipart/form-data">
-                <div class="mb-3">
-                    <textarea class="form-control border-light-subtle" name="content" rows="3"
-                        placeholder="Bạn đang nghĩ gì thế?..." required></textarea>
+                <input type="hidden" name="redirectUrl" value="/post/feed">
+
+                <!-- Avatar và ô nhập nội dung bài viết -->
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <img src="${empty loggedUser.avatar ? 'https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg' : loggedUser.avatar}"
+                         class="rounded-circle border" width="42" height="42" style="object-fit: cover;">
+                    <input type="text" class="form-control rounded-pill bg-light border-0 px-3 py-2"
+                           name="content"
+                           placeholder="${not empty loggedUser.fullName ? loggedUser.fullName : (not empty loggedUser.username ? loggedUser.username : 'Bạn')} ơi, bạn đang nghĩ gì thế?..."
+                           required autocomplete="off">
                 </div>
 
                 <div id="imagePreviewContainer" class="d-flex flex-wrap gap-2 mb-3 d-none"></div>
 
-                <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex justify-content-between align-items-center pt-2 border-top">
                     <div>
                         <label class="btn btn-outline-secondary btn-sm rounded-pill" for="filePicker">
                             <i class="bi bi-images text-success me-1"></i>Thêm ảnh (chọn nhiều lần)
                         </label>
-                        <input class="d-none" type="file" id="filePicker" accept="image/*" multiple
-                            onchange="addSelectedFiles(this)">
+                        <input class="d-none" type="file" id="filePicker" accept="image/*" multiple onchange="addSelectedFiles(this)">
                         <input class="d-none" type="file" id="postImages" name="images" multiple>
                     </div>
 
-                    <!-- BỘ CHỌN QUYỀN RIÊNG TƯ & NÚT ĐĂNG BÀI -->
+                    <!-- QUYỀN RIÊNG TƯ & NÚT ĐĂNG BÀI -->
                     <div class="d-flex align-items-center gap-2">
                         <select name="privacy"
-                            class="form-select form-select-sm rounded-pill border-light-subtle bg-light text-secondary py-1 px-3 fw-semibold"
-                            style="width: auto; cursor: pointer;">
+                                class="form-select form-select-sm rounded-pill border-light-subtle bg-light text-secondary py-1 px-3 fw-semibold"
+                                style="width: auto; cursor: pointer;">
                             <option value="PUBLIC" selected>🌐 Công khai</option>
                             <option value="FRIENDS">👥 Bạn bè</option>
                             <option value="PRIVATE">🔒 Chỉ mình tôi</option>
@@ -351,14 +356,15 @@
         <c:forEach var="p" items="${posts}">
             <div class="card shadow-sm border-0 rounded-3" id="post-card-${p.id}">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
+                    <!-- HEADER BÀI VIẾT -->
+                    <div class="d-flex justify-content-between align-items-center mb-2">
                         <div class="d-flex align-items-center">
-                            <a href="${pageContext.request.contextPath}/profile?userId=${p.user.id}" class="text-decoration-none">
+                            <a href="${pageContext.request.contextPath}/profile?userId=${p.user.id}">
                                 <img src="${empty p.user.avatar ? 'https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg' : p.user.avatar}"
                                     class="rounded-circle me-3 border" width="45" height="45" style="object-fit: cover;">
                             </a>
                             <div>
-                                <a href="${pageContext.request.contextPath}/profile?userId=${p.user.id}" class="text-decoration-none fw-bold text-dark d-block">
+                                <a href="${pageContext.request.contextPath}/profile?userId=${p.user.id}" class="text-decoration-none fw-bold text-dark">
                                     ${p.user.fullName != null ? p.user.fullName : p.user.username}
                                 </a>
                                 <div class="d-flex align-items-center gap-1 text-muted small" style="font-size: 0.8rem;">
@@ -379,7 +385,7 @@
                             </div>
                         </div>
 
-                        <!-- MENU 3 CHẤM BÀI VIẾT (BOOTSTRAP DROPDOWN) -->
+                        <!-- MENU 3 CHẤM BÀI VIẾT -->
                         <div class="dropdown">
                             <button class="btn btn-light btn-sm rounded-circle border-0 d-flex align-items-center justify-content-center"
                                 type="button" data-bs-toggle="dropdown" aria-expanded="false"
@@ -414,19 +420,14 @@
                     </div>
 
                     <!-- NỘI DUNG BÀI VIẾT -->
-                    <div class="card-text text-dark mb-3" style="white-space: pre-line;">
-                        <c:choose>
-                            <c:when test="${fn:length(p.content) > 160}">
-                                <span>${fn:substring(p.content, 0, 160)}</span><span id="dots-${p.id}">... </span><a href="javascript:void(0)"
-                                    id="btn-more-${p.id}" onclick="toggleReadMore(${p.id})"
-                                    class="fw-bold text-dark text-decoration-none">Xem thêm</a><span
-                                    id="more-${p.id}" class="d-none">${fn:substring(p.content, 160, fn:length(p.content))}</span>
-                            </c:when>
-                            <c:otherwise>
-                                ${p.content}
-                            </c:otherwise>
-                        </c:choose>
-                    </div>
+                    <c:choose>
+                        <c:when test="${fn:length(p.content) > 160}">
+                            <p class="card-text text-dark mb-2" style="white-space: pre-line;"><span>${fn:substring(p.content, 0, 160)}</span><span id="dots-${p.id}">... </span><a href="javascript:void(0)" id="btn-more-${p.id}" onclick="toggleReadMore(${p.id})" class="fw-bold text-dark text-decoration-none">Xem thêm</a><span id="more-${p.id}" class="d-none">${fn:substring(p.content, 160, fn:length(p.content))}</span></p>
+                        </c:when>
+                        <c:otherwise>
+                            <p class="card-text text-dark mb-2" style="white-space: pre-line;">${p.content}</p>
+                        </c:otherwise>
+                    </c:choose>
 
                     <!-- LƯỚI ẢNH -->
                     <c:if test="${not empty p.images}">
@@ -436,9 +437,7 @@
                                 <div class="post-img-box" onclick="openImageViewer(${p.id}, ${status.index})">
                                     <img src="${img.imageUrl}" alt="Hình ảnh bài viết">
                                     <c:if test="${status.index == 3 && imgCount > 4}">
-                                        <div class="post-img-overlay">
-                                            +${imgCount - 3}
-                                        </div>
+                                        <div class="post-img-overlay">+${imgCount - 3}</div>
                                     </c:if>
                                 </div>
                             </c:forEach>
@@ -472,7 +471,7 @@
                     <div id="comment-list-${p.id}" class="mt-3 pt-2 border-top">
                         <c:forEach items="${p.comments}" var="c">
                             <div class="d-flex align-items-start mb-2 comment-item" id="comment-item-${c.id}">
-                                <a href="${pageContext.request.contextPath}/profile?userId=${c.user.id}" class="text-decoration-none">
+                                <a href="${pageContext.request.contextPath}/profile?userId=${c.user.id}">
                                     <img src="${c.user.avatar != null && !c.user.avatar.isEmpty() ? c.user.avatar : 'https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg'}"
                                         class="rounded-circle me-2 border" width="32" height="32" style="object-fit: cover;" alt="Avatar">
                                 </a>
@@ -483,7 +482,7 @@
                                             <c:out value="${c.user.fullName != null ? c.user.fullName : c.user.username}" />
                                         </a>
 
-                                        <!-- MENU 3 CHẤM DỌC CHO BÌNH LUẬN -->
+                                        <!-- MENU 3 CHẤM BÌNH LUẬN -->
                                         <c:if test="${sessionScope.currentUser != null && sessionScope.currentUser.id == c.user.id}">
                                             <div class="dropdown">
                                                 <button class="btn btn-link text-muted p-0 border-0 text-decoration-none"
@@ -507,12 +506,10 @@
                                         </c:if>
                                     </div>
 
-                                    <!-- Nội dung hiển thị -->
                                     <div id="comment-text-${c.id}" class="text-secondary" style="font-size: 0.9rem;">
                                         <c:out value="${c.content}" />
                                     </div>
 
-                                    <!-- Khung sửa (ẩn mặc định) -->
                                     <div id="comment-edit-box-${c.id}" class="d-none mt-2">
                                         <input type="text" class="form-control form-control-sm mb-1" id="comment-input-${c.id}" value="${c.content}">
                                         <button class="btn btn-sm btn-primary rounded-pill px-2 py-0" onclick="saveEditComment(${c.id})">Lưu</button>
@@ -559,12 +556,15 @@
             <div class="modal-body pt-3">
                 <form id="shareFeedForm" action="" method="post">
                     <div class="d-flex align-items-center gap-2 mb-3">
-                        <img src="https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg" class="rounded-circle border" width="46" height="46">
+                        <img src="${empty loggedUser.avatar ? 'https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg' : loggedUser.avatar}"
+                             class="rounded-circle border" width="46" height="46" style="object-fit: cover;">
                         <div>
-                            <div class="fw-bold">Bạn</div>
+                            <div class="fw-bold">${not empty loggedUser.fullName ? loggedUser.fullName : loggedUser.username}</div>
                             <div class="d-flex gap-1 mt-1">
                                 <span class="badge bg-light text-dark border fw-normal px-2 py-1">Bảng feed</span>
-                                <select name="privacy" class="form-select form-select-sm py-0 px-2 text-muted border-light-subtle rounded-3" style="width: auto; font-size: 12px;">
+                                <select name="privacy"
+                                    class="form-select form-select-sm py-0 px-2 text-muted border-light-subtle rounded-3"
+                                    style="width: auto; font-size: 12px;">
                                     <option value="PUBLIC">Công khai</option>
                                     <option value="FRIENDS">Bạn bè</option>
                                     <option value="PRIVATE" selected>Chỉ mình tôi</option>
@@ -584,26 +584,15 @@
                 <div>
                     <div class="fw-bold text-dark mb-3">Gửi bằng Messenger</div>
                     <div class="friend-avatar-list">
-                        <div class="friend-item" onclick="sendToFriend(this, 'nhóc')">
-                            <img src="https://images.unsplash.com/photo-1543610892-0b1f7e6d8ac1?w=100&h=100&fit=crop">
-                            <span>nhóc</span>
-                        </div>
-                        <div class="friend-item" onclick="sendToFriend(this, 'Đoàn Anh Bảo')">
-                            <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop">
-                            <span>Đoàn Anh Bảo</span>
-                        </div>
-                        <div class="friend-item" onclick="sendToFriend(this, 'Lớp ae ATTT')">
-                            <img src="https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&h=100&fit=crop">
-                            <span>Lớp ae ATTT</span>
-                        </div>
-                        <div class="friend-item" onclick="sendToFriend(this, 'Duy Thông')">
-                            <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop">
-                            <span>Duy Thông</span>
-                        </div>
-                        <div class="friend-item" onclick="sendToFriend(this, 'Võ Ngọc Kiều Vy')">
-                            <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop">
-                            <span>Kiều Vy</span>
-                        </div>
+                        <c:forEach var="fr" items="${userFriends}">
+                            <div class="friend-item" onclick="sendToFriend(this, '${fr.fullName}')">
+                                <img src="${empty fr.avatar ? 'https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg' : fr.avatar}" alt="Avatar">
+                                <span>${fr.fullName}</span>
+                            </div>
+                        </c:forEach>
+                        <c:if test="${empty userFriends}">
+                            <small class="text-muted ps-2">Chưa có bạn bè để chia sẻ.</small>
+                        </c:if>
                     </div>
                 </div>
             </div>
@@ -892,5 +881,4 @@
     });
 </script>
 
-<!-- Nhúng file interaction.js để xử lý Like/Comment mượt mà -->
 <script src="${pageContext.request.contextPath}/js/interaction.js"></script>

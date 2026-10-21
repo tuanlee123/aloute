@@ -1,17 +1,17 @@
 package com.aloute.controller;
 
 import com.aloute.dto.ChangePasswordDTO;
-import com.aloute.entity.Post;
-import com.aloute.repository.PostRepository;
-import com.aloute.repository.UserRepository;
-import java.util.List;
 import com.aloute.dto.LoginDTO;
 import com.aloute.dto.RegisterDTO;
 import com.aloute.dto.ResetPasswordDTO;
 import com.aloute.dto.UpdateProfileDTO;
 import com.aloute.dto.VerifyOtpDTO;
+import com.aloute.entity.Post;
 import com.aloute.entity.User;
+import com.aloute.repository.PostRepository;
+import com.aloute.repository.UserRepository;
 import com.aloute.service.AuthService;
+import com.aloute.service.FriendshipService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -22,13 +22,18 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 @Controller
 @RequiredArgsConstructor
 public class AuthController {
 
     private final AuthService authService;
     private final PostRepository postRepository;
-    private final UserRepository userRepository; // ĐÃ THÊM: Dùng để tìm thông tin user khi click avatar
+    private final UserRepository userRepository;
+    private final FriendshipService friendshipService; // THÊM MỚI: Xử lý quan hệ bạn bè thật từ DB
 
     // --- 1. ĐĂNG KÝ ---
     @GetMapping("/register")
@@ -158,7 +163,7 @@ public class AuthController {
     }
 
     // ==========================================
-    // 1. TRANG CÁ NHÂN (/profile) - HỖ TRỢ XEM PROFILE BẤT KỲ USER NÀO
+    // 1. TRANG CÁ NHÂN (/profile) - HỖ TRỢ XEM PROFILE BẤT KỲ USER NÀO & DỮ LIỆU BẠN BÈ THẬT
     // ==========================================
     @GetMapping("/profile")
     public String showProfilePage(@RequestParam(value = "userId", required = false) Long userId,
@@ -178,9 +183,30 @@ public class AuthController {
         // Lấy danh sách bài viết của user tương ứng
         List<Post> userPosts = postRepository.findByUserIdOrderByCreatedAtDesc(profileUser.getId());
 
+        // Lấy danh sách bạn bè thật từ DB của người đang được xem trang cá nhân
+        List<User> userFriends = friendshipService.getFriends(profileUser.getId());
+        
+        // Tính số lượng bạn chung giữa người dùng đang đăng nhập và từng người bạn trong danh sách
+        Map<Long, Integer> mutualCounts = new HashMap<>();
+        for (User f : userFriends) {
+            mutualCounts.put(f.getId(), friendshipService.countMutualFriends(currentUser.getId(), f.getId()));
+        }
+
+        // Trạng thái quan hệ bạn bè với chủ trang cá nhân (nếu đang xem người khác)
+        boolean isOwner = profileUser.getId().equals(currentUser.getId());
+        if (!isOwner) {
+            String friendshipStatus = friendshipService.getFriendshipStatus(currentUser.getId(), profileUser.getId());
+            int mutualWithProfileUser = friendshipService.countMutualFriends(currentUser.getId(), profileUser.getId());
+            model.addAttribute("friendshipStatus", friendshipStatus);
+            model.addAttribute("mutualWithProfileUser", mutualWithProfileUser);
+        }
+
         model.addAttribute("user", profileUser);
         model.addAttribute("posts", userPosts);
-        model.addAttribute("isOwner", profileUser.getId().equals(currentUser.getId())); // true nếu là chính chủ
+        model.addAttribute("isOwner", isOwner);
+        model.addAttribute("userFriends", userFriends);
+        model.addAttribute("totalFriendsCount", userFriends.size());
+        model.addAttribute("mutualCounts", mutualCounts);
 
         return "profile";
     }

@@ -19,7 +19,7 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
 
     /**
-     * Tạo thông báo. Nội dung sẽ là: "<Tên người gửi> <action>".
+     * Tạo thông báo theo chuẩn của bạn: "<Tên người gửi> <action>".
      * Ví dụ: create(chuBai, nguoiLike, "đã thích bài viết của bạn", "/post/feed#post-card-5")
      */
     @Transactional
@@ -46,12 +46,33 @@ public class NotificationService {
                 .build());
     }
 
+    /**
+     * Hỗ trợ tạo thông báo truyền trực tiếp nội dung đầy đủ (dùng cho FriendshipService)
+     */
+    @Transactional
+    public void createNotification(User recipient, User sender, String fullContent, String targetUrl) {
+        if (recipient == null || sender == null) return;
+        if (recipient.getId().equals(sender.getId())) return;
+
+        if (fullContent != null && fullContent.length() > 255) {
+            fullContent = fullContent.substring(0, 255);
+        }
+
+        notificationRepository.save(Notification.builder()
+                .recipient(recipient)
+                .sender(sender)
+                .content(fullContent)
+                .targetUrl(targetUrl)
+                .isRead(false)
+                .build());
+    }
+
     @Transactional(readOnly = true)
     public long countUnread(Long userId) {
         return notificationRepository.countByRecipientIdAndIsReadFalse(userId);
     }
 
-    /** 20 thông báo mới nhất dưới dạng Map (cho dropdown chuông, không kèm avatar vì có thể là Base64 rất nặng). */
+    /** 20 thông báo mới nhất dưới dạng Map (cho dropdown chuông) */
     @Transactional(readOnly = true)
     public List<Map<String, Object>> latest(Long userId) {
         List<Map<String, Object>> result = new ArrayList<>();
@@ -71,7 +92,13 @@ public class NotificationService {
         return notificationRepository.findByRecipientIdOrderByCreatedAtDesc(userId);
     }
 
-    /** Đánh dấu đã đọc và trả về link đích. Chỉ chủ thông báo mới mở được. */
+    /** Alias trỏ về listAll để tương thích */
+    @Transactional(readOnly = true)
+    public List<Notification> getNotifications(Long userId) {
+        return listAll(userId);
+    }
+
+    /** Đánh dấu đã đọc và trả về link đích */
     @Transactional
     public String openAndMarkRead(Long notificationId, Long userId) {
         Notification n = notificationRepository.findById(notificationId).orElse(null);
@@ -86,5 +113,11 @@ public class NotificationService {
         List<Notification> list = notificationRepository.findByRecipientIdOrderByCreatedAtDesc(userId);
         list.forEach(n -> n.setIsRead(true));
         notificationRepository.saveAll(list);
+    }
+
+    /** Alias trỏ về markAllRead để tương thích */
+    @Transactional
+    public void markAllAsRead(Long userId) {
+        markAllRead(userId);
     }
 }
