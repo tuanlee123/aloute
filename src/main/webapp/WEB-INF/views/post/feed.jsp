@@ -162,8 +162,7 @@
 	object-fit: contain;
 	border-radius: 6px;
 	box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7);
-	transition: transform 0.2s cubic-bezier(0.2, 0, 0.2, 1), opacity 0.2s
-		ease;
+	transition: transform 0.2s cubic-bezier(0.2, 0, 0.2, 1), opacity 0.2s ease;
 	transform-origin: center center;
 }
 
@@ -360,58 +359,59 @@
 		</div>
 	</c:if>
 
-	<!-- KHUNG ĐĂNG BÀI VIẾT -->
-	<div class="card shadow-sm border-0 mb-4 rounded-3">
-		<div class="card-body p-3">
-			<form action="${pageContext.request.contextPath}/post/create"
-				method="post" enctype="multipart/form-data">
-				<input type="hidden" name="redirectUrl" value="/post/feed">
+	<!-- KHUNG ĐĂNG BÀI VIẾT (ILIMED ITI ADMIN) -->
+	<c:if test="${sessionScope.isAdminUser != true}">
+		<div class="card shadow-sm border-0 mb-4 rounded-3">
+			<div class="card-body p-3">
+				<form action="${pageContext.request.contextPath}/post/create"
+					method="post" enctype="multipart/form-data">
+					<input type="hidden" name="redirectUrl" value="/post/feed">
 
-				<!-- Avatar và ô nhập nội dung bài viết -->
-				<div class="d-flex align-items-center gap-2 mb-3">
-					<img
-						src="${empty loggedUser.avatar ? 'https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg' : loggedUser.avatar}"
-						class="rounded-circle border" width="42" height="42"
-						style="object-fit: cover;"> <input type="text"
-						class="form-control rounded-pill bg-light border-0 px-3 py-2"
-						name="content"
-						placeholder="${not empty loggedUser.fullName ? loggedUser.fullName : (not empty loggedUser.username ? loggedUser.username : 'Bạn')} ơi, bạn đang nghĩ gì thế?..."
-						required autocomplete="off">
-				</div>
-
-				<div id="imagePreviewContainer"
-					class="d-flex flex-wrap gap-2 mb-3 d-none"></div>
-
-				<div
-					class="d-flex justify-content-between align-items-center pt-2 border-top">
-					<div>
-						<label class="btn btn-outline-secondary btn-sm rounded-pill"
-							for="filePicker"> <i
-							class="bi bi-images text-success me-1"></i>Thêm ảnh (chọn nhiều
-							lần)
-						</label> <input class="d-none" type="file" id="filePicker"
-							accept="image/*" multiple onchange="addSelectedFiles(this)">
-						<input class="d-none" type="file" id="postImages" name="images"
-							multiple>
+					<!-- Avatar và ô nhập nội dung bài viết -->
+					<div class="d-flex align-items-center gap-2 mb-3">
+						<img
+							src="${empty loggedUser.avatar ? 'https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg' : loggedUser.avatar}"
+							class="rounded-circle border" width="42" height="42"
+							style="object-fit: cover;"> <input type="text"
+							class="form-control rounded-pill bg-light border-0 px-3 py-2"
+							name="content"
+							placeholder="${not empty loggedUser.fullName ? loggedUser.fullName : (not empty loggedUser.username ? loggedUser.username : 'Bạn')} ơi, bạn đang nghĩ gì thế?..."
+							required autocomplete="off">
 					</div>
 
-					<!-- QUYỀN RIÊNG TƯ & NÚT ĐĂNG BÀI -->
-					<div class="d-flex align-items-center gap-2">
-						<select name="privacy"
-							class="form-select form-select-sm rounded-pill border-light-subtle bg-light text-secondary py-1 px-3 fw-semibold"
-							style="width: auto; cursor: pointer;">
-							<option value="PUBLIC" selected>🌐 Công khai</option>
-							<option value="FRIENDS">👥 Bạn bè</option>
-							<option value="PRIVATE">🔒 Chỉ mình tôi</option>
-						</select>
-						<button type="submit"
-							class="btn btn-primary px-4 rounded-pill fw-semibold">Đăng
-							bài</button>
+					<div id="imagePreviewContainer"
+						class="d-flex flex-wrap gap-2 mb-3 d-none"></div>
+
+					<div
+						class="d-flex justify-content-between align-items-center pt-2 border-top">
+						<div>
+							<label class="btn btn-outline-secondary btn-sm rounded-pill"
+								for="filePicker"> <i
+								class="bi bi-images text-success me-1"></i>Thêm ảnh
+							</label> <input class="d-none" type="file" id="filePicker"
+								accept="image/*" multiple onchange="addSelectedFiles(this)">
+							<input class="d-none" type="file" id="postImages" name="images"
+								multiple>
+						</div>
+
+						<!-- QUYỀN RIÊNG TƯ & NÚT ĐĂNG BÀI -->
+						<div class="d-flex align-items-center gap-2">
+							<select name="privacy"
+								class="form-select form-select-sm rounded-pill border-light-subtle bg-light text-secondary py-1 px-3 fw-semibold"
+								style="width: auto; cursor: pointer;">
+								<option value="PUBLIC" selected>🌐 Công khai</option>
+								<option value="FRIENDS">👥 Bạn bè</option>
+								<option value="PRIVATE">🔒 Chỉ mình tôi</option>
+							</select>
+							<button type="submit"
+								class="btn btn-primary px-4 rounded-pill fw-semibold">Đăng
+								bài</button>
+						</div>
 					</div>
-				</div>
-			</form>
+				</form>
+			</div>
 		</div>
-	</div>
+	</c:if>
 
 	<!-- DANH SÁCH BÀI VIẾT TRÊN BẢNG TIN -->
 	<div class="d-flex flex-column gap-3">
@@ -463,21 +463,25 @@
 							<ul
 								class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 py-2"
 								style="min-width: 190px; z-index: 1055;">
-								<li>
-									<button type="button" class="dropdown-item py-2"
-										onclick="savePostAjax(${p.id})">
-										<i class="bi bi-bookmark-fill text-danger me-2"></i>Lưu bài
-										viết
-									</button>
-								</li>
+								<c:if test="${sessionScope.isAdminUser != true}">
+									<li>
+										<button type="button" class="dropdown-item py-2"
+											onclick="savePostAjax(${p.id})">
+											<i class="bi bi-bookmark-fill text-danger me-2"></i>Lưu bài viết
+										</button>
+									</li>
+								</c:if>
+								
+								<!-- Admin wenno kukuana ti post ket mabalinda a pukawen -->
 								<c:if
-									test="${sessionScope.currentUser != null && sessionScope.currentUser.id == p.user.id}">
-									<li><hr class="dropdown-divider my-1"></li>
-									<li><a class="dropdown-item py-2"
-										href="${pageContext.request.contextPath}/post/edit/${p.id}">
-											<i class="bi bi-pencil me-2 text-warning"></i>Chỉnh sửa bài
-											viết
-									</a></li>
+									test="${sessionScope.currentUser != null && (sessionScope.currentUser.id == p.user.id || sessionScope.isAdminUser == true)}">
+									<c:if test="${sessionScope.currentUser.id == p.user.id}">
+										<li><hr class="dropdown-divider my-1"></li>
+										<li><a class="dropdown-item py-2"
+											href="${pageContext.request.contextPath}/post/edit/${p.id}">
+												<i class="bi bi-pencil me-2 text-warning"></i>Chỉnh sửa bài viết
+										</a></li>
+									</c:if>
 									<li>
 										<form
 											action="${pageContext.request.contextPath}/post/delete/${p.id}"
@@ -540,21 +544,32 @@
                         </script>
 					</c:if>
 
-					<!-- THANH TƯƠNG TÁC: NÚT THÍCH & NÚT CHIA SẺ -->
+					<!-- THANH TƯƠNG TÁC (MAIKAT TI BUTON NO ADMIN) -->
 					<div class="post-action-bar mt-3">
-						<button type="button"
-							class="btn btn-sm btn-outline-danger btn-like rounded-pill px-3"
-							data-post-id="${p.id}">
-							<i class="far fa-heart me-1"></i> Thích (<span class="like-count">${p.likes != null ? p.likes.size() : 0}</span>)
-						</button>
+						<c:choose>
+							<c:when test="${sessionScope.isAdminUser == true}">
+								<span class="text-muted small">
+									<i class="far fa-heart me-1 text-danger"></i>${p.likes != null ? p.likes.size() : 0} lượt thích
+								</span>
+								<span class="text-muted small">
+									<i class="bi bi-reply-fill me-1"></i>${p.shareCount != null ? p.shareCount : 0} chia sẻ
+								</span>
+							</c:when>
+							<c:otherwise>
+								<button type="button"
+									class="btn btn-sm btn-outline-danger btn-like rounded-pill px-3"
+									data-post-id="${p.id}">
+									<i class="far fa-heart me-1"></i> Thích (<span class="like-count">${p.likes != null ? p.likes.size() : 0}</span>)
+								</button>
 
-						<button type="button" class="btn-post-share"
-							onclick="openShareModal(${p.id})">
-							<i class="bi bi-reply-fill"
-								style="transform: scaleX(-1); font-size: 19px;"></i> <span
-								id="share-count-${p.id}">${p.shareCount != null ? p.shareCount : 0}
-								chia sẻ</span>
-						</button>
+								<button type="button" class="btn-post-share"
+									onclick="openShareModal(${p.id})">
+									<i class="bi bi-reply-fill"
+										style="transform: scaleX(-1); font-size: 19px;"></i> <span
+										id="share-count-${p.id}">${p.shareCount != null ? p.shareCount : 0} chia sẻ</span>
+								</button>
+							</c:otherwise>
+						</c:choose>
 					</div>
 
 					<!-- DANH SÁCH BÌNH LUẬN -->
@@ -580,9 +595,9 @@
 												value="${c.user.fullName != null ? c.user.fullName : c.user.username}" />
 										</a>
 
-										<!-- MENU 3 CHẤM BÌNH LUẬN -->
+										<!-- MENU 3 CHẤM BÌNH LUẬN (Admin wenno ti nagsurat ket mabalinda a pukawen) -->
 										<c:if
-											test="${sessionScope.currentUser != null && sessionScope.currentUser.id == c.user.id}">
+											test="${sessionScope.currentUser != null && (sessionScope.currentUser.id == c.user.id || sessionScope.isAdminUser == true)}">
 											<div class="dropdown">
 												<button
 													class="btn btn-link text-muted p-0 border-0 text-decoration-none"
@@ -594,11 +609,13 @@
 												<ul
 													class="dropdown-menu dropdown-menu-end shadow-sm border-0 py-1"
 													style="font-size: 0.85rem; z-index: 1060;">
-													<li><a class="dropdown-item py-1"
-														href="javascript:void(0)"
-														onclick="openEditComment(${c.id})"> <i
-															class="bi bi-pencil me-2 text-primary"></i>Chỉnh sửa
-													</a></li>
+													<c:if test="${sessionScope.currentUser.id == c.user.id}">
+														<li><a class="dropdown-item py-1"
+															href="javascript:void(0)"
+															onclick="openEditComment(${c.id})"> <i
+																class="bi bi-pencil me-2 text-primary"></i>Chỉnh sửa
+														</a></li>
+													</c:if>
 													<li><a class="dropdown-item py-1 text-danger"
 														href="javascript:void(0)" onclick="deleteComment(${c.id})">
 															<i class="bi bi-trash me-2"></i>Xóa
@@ -630,14 +647,16 @@
 						</c:forEach>
 					</div>
 
-					<!-- Ô NHẬP BÌNH LUẬN MỚI -->
-					<form class="form-comment mt-2 d-flex gap-2" data-post-id="${p.id}">
-						<input type="text"
-							class="form-control form-control-sm rounded-pill input-comment px-3"
-							placeholder="Viết bình luận..." required autocomplete="off" />
-						<button type="submit"
-							class="btn btn-sm btn-primary rounded-pill px-3">Gửi</button>
-					</form>
+					<!-- Ô NHẬP BÌNH LUẬN MỚI (ILIMED ITI ADMIN) -->
+					<c:if test="${sessionScope.isAdminUser != true}">
+						<form class="form-comment mt-2 d-flex gap-2" data-post-id="${p.id}">
+							<input type="text"
+								class="form-control form-control-sm rounded-pill input-comment px-3"
+								placeholder="Viết bình luận..." required autocomplete="off" />
+							<button type="submit"
+								class="btn btn-sm btn-primary rounded-pill px-3">Gửi</button>
+						</form>
+					</c:if>
 
 				</div>
 			</div>
@@ -654,77 +673,78 @@
 </div>
 
 <!-- MODAL CHIA SẺ -->
-<div class="modal fade" id="shareModal" tabindex="-1" aria-hidden="true">
-	<div class="modal-dialog modal-dialog-centered"
-		style="max-width: 520px;">
-		<div class="modal-content rounded-4 border-0 shadow">
-			<div
-				class="modal-header border-0 pb-0 justify-content-center position-relative">
-				<h5 class="modal-title fw-bold fs-5">Chia sẻ</h5>
-				<button type="button" class="btn-close position-absolute end-0 me-3"
-					data-bs-dismiss="modal"></button>
-			</div>
-			<div class="modal-body pt-3">
-				<form id="shareFeedForm" action="" method="post">
-					<input type="hidden" name="redirectUrl" value="/post/feed">
-					<div class="d-flex align-items-center gap-2 mb-3">
-						<img
-							src="${empty loggedUser.avatar ? 'https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg' : loggedUser.avatar}"
-							class="rounded-circle border" width="46" height="46"
-							style="object-fit: cover;">
-						<div>
-							<div class="fw-bold">${not empty loggedUser.fullName ? loggedUser.fullName : loggedUser.username}</div>
-							<div class="d-flex gap-1 mt-1">
-								<span
-									class="badge bg-light text-dark border fw-normal px-2 py-1">Bảng
-									feed</span> <select name="privacy"
-									class="form-select form-select-sm py-0 px-2 text-muted border-light-subtle rounded-3"
-									style="width: auto; font-size: 12px; cursor: pointer;">
-									<option value="PUBLIC" selected>🌐 Công khai</option>
-									<option value="FRIENDS">👥 Bạn bè</option>
-									<option value="PRIVATE">🔒 Chỉ mình tôi</option>
-								</select>
+<c:if test="${sessionScope.isAdminUser != true}">
+	<div class="modal fade" id="shareModal" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered"
+			style="max-width: 520px;">
+			<div class="modal-content rounded-4 border-0 shadow">
+				<div
+					class="modal-header border-0 pb-0 justify-content-center position-relative">
+					<h5 class="modal-title fw-bold fs-5">Chia sẻ</h5>
+					<button type="button" class="btn-close position-absolute end-0 me-3"
+						data-bs-dismiss="modal"></button>
+				</div>
+				<div class="modal-body pt-3">
+					<form id="shareFeedForm" action="" method="post">
+						<input type="hidden" name="redirectUrl" value="/post/feed">
+						<div class="d-flex align-items-center gap-2 mb-3">
+							<img
+								src="${empty loggedUser.avatar ? 'https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg' : loggedUser.avatar}"
+								class="rounded-circle border" width="46" height="46"
+								style="object-fit: cover;">
+							<div>
+								<div class="fw-bold">${not empty loggedUser.fullName ? loggedUser.fullName : loggedUser.username}</div>
+								<div class="d-flex gap-1 mt-1">
+									<span
+										class="badge bg-light text-dark border fw-normal px-2 py-1">Bảng feed</span> 
+									<select name="privacy"
+										class="form-select form-select-sm py-0 px-2 text-muted border-light-subtle rounded-3"
+										style="width: auto; font-size: 12px; cursor: pointer;">
+										<option value="PUBLIC" selected>🌐 Công khai</option>
+										<option value="FRIENDS">👥 Bạn bè</option>
+										<option value="PRIVATE">🔒 Chỉ mình tôi</option>
+									</select>
+								</div>
 							</div>
 						</div>
-					</div>
-					<div class="mb-3">
-						<textarea class="form-control border-0 px-0 fs-6" name="caption"
-							rows="2" placeholder="Hãy nói gì đó về nội dung này..."
-							style="resize: none;"></textarea>
-					</div>
-					<div class="d-flex justify-content-end mb-3">
-						<button type="submit"
-							class="btn btn-primary px-4 rounded-pill fw-semibold shadow-sm">Chia
-							sẻ ngay</button>
-					</div>
-				</form>
-				<hr class="text-secondary my-3 opacity-25">
-				<div>
-					<!-- GỬI BẰNG UTEBOX CHUẨN LOGO -->
-					<div class="d-flex align-items-center gap-2 mb-3">
-						<img src="<c:url value='/images/utebox-logo.png'/>" alt="UB"
-							class="rounded-circle" width="22" height="22">
-						<div class="fw-bold text-dark">Gửi bằng Utebox</div>
-					</div>
+						<div class="mb-3">
+							<textarea class="form-control border-0 px-0 fs-6" name="caption"
+								rows="2" placeholder="Hãy nói gì đó về nội dung này..."
+								style="resize: none;"></textarea>
+						</div>
+						<div class="d-flex justify-content-end mb-3">
+							<button type="submit"
+								class="btn btn-primary px-4 rounded-pill fw-semibold shadow-sm">Chia sẻ ngay</button>
+						</div>
+					</form>
+					<hr class="text-secondary my-3 opacity-25">
+					<div>
+						<!-- GỬI BẰNG UTEBOX -->
+						<div class="d-flex align-items-center gap-2 mb-3">
+							<img src="<c:url value='/images/utebox-logo.png'/>" alt="UB"
+								class="rounded-circle" width="22" height="22">
+							<div class="fw-bold text-dark">Gửi bằng Utebox</div>
+						</div>
 
-					<div class="friend-avatar-list">
-						<c:forEach var="fr" items="${myFriends}">
-							<div class="friend-item"
-								onclick="sendPostViaUtebox(${fr.id}, '${fr.fullName != null ? fr.fullName : fr.username}', '${fr.avatar}')">
-								<img
-									src="${empty fr.avatar ? 'https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg' : fr.avatar}"
-									alt="Avatar"> <span>${fr.fullName != null ? fr.fullName : fr.username}</span>
-							</div>
-						</c:forEach>
-						<c:if test="${empty myFriends}">
-							<small class="text-muted ps-2">Chưa có bạn bè để chia sẻ.</small>
-						</c:if>
+						<div class="friend-avatar-list">
+							<c:forEach var="fr" items="${myFriends}">
+								<div class="friend-item"
+									onclick="sendPostViaUtebox(${fr.id}, '${fr.fullName != null ? fr.fullName : fr.username}', '${fr.avatar}')">
+									<img
+										src="${empty fr.avatar ? 'https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg' : fr.avatar}"
+										alt="Avatar"> <span>${fr.fullName != null ? fr.fullName : fr.username}</span>
+								</div>
+							</c:forEach>
+							<c:if test="${empty myFriends}">
+								<small class="text-muted ps-2">Chưa có bạn bè để chia sẻ.</small>
+							</c:if>
+						</div>
 					</div>
 				</div>
 			</div>
 		</div>
 	</div>
-</div>
+</c:if>
 
 <!-- KHUNG MODAL XEM ẢNH LIGHTBOX -->
 <div id="imageViewerModal" onclick="closeViewerOnBackdrop(event)">
@@ -756,14 +776,15 @@
 		<img id="imageViewerImg" src="" alt="Xem ảnh"
 			ondblclick="toggleDoubleZoom(event)">
 	</div>
-	<div class="viewer-bottom-bar" onclick="event.stopPropagation()">
-		<button type="button" class="viewer-share-btn"
-			onclick="openShareModalFromViewer()">
-			<i class="bi bi-reply-fill"
-				style="transform: scaleX(-1); font-size: 20px;"></i> <span>Chia
-				sẻ</span>
-		</button>
-	</div>
+	<c:if test="${sessionScope.isAdminUser != true}">
+		<div class="viewer-bottom-bar" onclick="event.stopPropagation()">
+			<button type="button" class="viewer-share-btn"
+				onclick="openShareModalFromViewer()">
+				<i class="bi bi-reply-fill"
+					style="transform: scaleX(-1); font-size: 20px;"></i> <span>Chia sẻ</span>
+			</button>
+		</div>
+	</c:if>
 	<button type="button" class="viewer-side-btn viewer-btn-right"
 		title="Ảnh tiếp theo" onclick="showNextImage(event)">
 		<i class="bi bi-chevron-right"></i>
@@ -859,7 +880,9 @@
     function openShareModal(postId) {
         activeSharePostId = postId;
         const form = document.getElementById('shareFeedForm');
-        form.action = '${pageContext.request.contextPath}/post/share/' + postId;
+        if (form) {
+            form.action = '${pageContext.request.contextPath}/post/share/' + postId;
+        }
 
         const shareModal = new bootstrap.Modal(document.getElementById('shareModal'));
         shareModal.show();
@@ -876,14 +899,12 @@
         if (!activeSharePostId && !currentSharePostId) return;
         const targetPostId = activeSharePostId || currentSharePostId;
 
-        // 1. Đóng Modal chia sẻ
-        const shareModalEl = document.getElementById('shareModal') || document.getElementById('sharePostModal');
+        const shareModalEl = document.getElementById('shareModal');
         if (shareModalEl) {
             const modalInstance = bootstrap.Modal.getInstance(shareModalEl);
             if (modalInstance) modalInstance.hide();
         }
 
-        // 2. Mở khung chat Utebox
         if (typeof openChatWith === 'function') {
             openChatWith(partnerId, partnerName, partnerAvatar);
         }
@@ -893,7 +914,6 @@
         params.append('partnerId', partnerId);
         params.append('content', shareContent);
 
-        // 3. Gửi tin nhắn qua Utebox
         fetch('${pageContext.request.contextPath}/api/utebox/send', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -905,7 +925,6 @@
                 appendUteboxMessage(savedMsg, true);
             }
 
-            // 4. GỌI API TĂNG LƯỢT CHIA SẺ TRONG DATABASE
             return fetch('${pageContext.request.contextPath}/post/share/count/' + targetPostId, {
                 method: 'POST'
             });
@@ -913,7 +932,6 @@
         .then(res => res.json())
         .then(data => {
             if (data && data.success) {
-                // Cập nhật số hiển thị ngay trên giao diện hiện tại
                 const counter = document.getElementById('share-count-' + targetPostId);
                 if (counter) {
                     counter.innerText = data.newShareCount + " chia sẻ";

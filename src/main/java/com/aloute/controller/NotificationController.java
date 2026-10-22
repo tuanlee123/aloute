@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 
+import java.util.Collections;
 import java.util.List;
 
 @Controller
@@ -25,11 +26,24 @@ public class NotificationController {
         return u != null ? u : (User) session.getAttribute("user");
     }
 
+    private boolean isUserAdmin(User user) {
+        if (user == null || user.getRoles() == null) return false;
+        return user.getRoles().stream()
+                .anyMatch(r -> "ROLE_ADMIN".equalsIgnoreCase(r.getName()));
+    }
+
     // 1. Mở trang toàn bộ danh sách thông báo (/notifications)
     @GetMapping("/notifications")
     public String page(HttpSession session, Model model) {
         User user = getLoggedInUser(session);
         if (user == null) return "redirect:/login";
+
+        // Admin không có luồng tương tác bạn bè / thông báo cá nhân
+        if (isUserAdmin(user)) {
+            model.addAttribute("notifications", Collections.emptyList());
+            model.addAttribute("isAdminNotice", true);
+            return "notifications";
+        }
 
         List<Notification> list;
         try {
@@ -42,11 +56,15 @@ public class NotificationController {
         return "notifications"; // Trỏ đến file /WEB-INF/views/notifications.jsp
     }
 
-    // 2. Click vào 1 thông báo cụ thể: đánh dấu đã đọc và chuyển hướng đến trang đích
+    // 2. Click vào 1 thông báo cụ thể: đánh dấu đã đọc và chuyển hướng
     @GetMapping("/notifications/{id}/open")
     public String open(@PathVariable Long id, HttpSession session) {
         User user = getLoggedInUser(session);
         if (user == null) return "redirect:/login";
+
+        if (isUserAdmin(user)) {
+            return "redirect:/admin";
+        }
 
         String url = notificationService.openAndMarkRead(id, user.getId());
         if (url == null || !url.startsWith("/")) {
@@ -59,7 +77,7 @@ public class NotificationController {
     @PostMapping("/notifications/read-all")
     public String readAll(HttpSession session) {
         User user = getLoggedInUser(session);
-        if (user != null) {
+        if (user != null && !isUserAdmin(user)) {
             try {
                 notificationService.markAllAsRead(user.getId());
             } catch (Exception e) {

@@ -84,7 +84,7 @@ body {
 				class="bi bi-chat-square-heart-fill me-1"></i>ALOUTE
 			</a>
 
-			<!-- Form tìm kiếm nhanh -->
+			<!-- Form tìm kiếm -->
 			<form class="d-flex ms-3 d-none d-md-block" role="search"
 				style="width: 340px;" action="<c:url value='/search'/>" method="get">
 				<div class="input-group">
@@ -98,80 +98,86 @@ body {
 				</div>
 			</form>
 
-			<!-- Menu bên phải: Messenger, Thông báo, Tài khoản cá nhân -->
+			<!-- Menu bên phải -->
 			<div class="d-flex align-items-center ms-auto gap-2">
 				<c:choose>
 					<c:when test="${not empty sessionScope.currentUser}">
 
-						<!-- 1. ICON UTEBOX LOGO MỚI CHUẨN FACEBOOK -->
-						<div class="dropdown">
-							<button type="button" id="messengerBtn"
-								class="btn btn-light rounded-circle p-1 position-relative d-flex align-items-center justify-content-center border-0 shadow-sm"
-								style="width: 40px; height: 40px; background-color: #f0f2f5;"
-								title="Utebox Chat" data-bs-toggle="dropdown"
-								aria-expanded="false" onclick="loadConversationsList()">
+						<!-- 1. ICON UTEBOX LOGO (ILIMED ITI ADMIN) -->
+						<c:if test="${sessionScope.isAdminUser != true}">
+							<div class="dropdown">
+								<button type="button" id="messengerBtn"
+									class="btn btn-light rounded-circle p-1 position-relative d-flex align-items-center justify-content-center border-0 shadow-sm"
+									style="width: 40px; height: 40px; background-color: #f0f2f5;"
+									title="Utebox Chat" data-bs-toggle="dropdown"
+									aria-expanded="false" onclick="loadConversationsList()">
 
-								<!-- Logo UB -->
-								<img src="<c:url value='/images/utebox-logo.png'/>" alt="UB"
-									class="rounded-circle" width="30" height="30"
-									style="object-fit: cover;">
+									<img src="<c:url value='/images/utebox-logo.png'/>" alt="UB"
+										class="rounded-circle" width="30" height="30"
+										style="object-fit: cover;">
 
-								<!-- Badge thông báo tin nhắn chưa đọc -->
-								<span id="messengerBadge"
-									class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
-									style="font-size: 0.7rem; border: 2px solid #fff;"> 0 </span>
-							</button>
-							<div
-								class="dropdown-menu dropdown-menu-end shadow border-0 p-0 rounded-4"
-								style="width: 360px; max-height: 480px; overflow-y: auto;">
+									<span id="messengerBadge"
+										class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
+										style="font-size: 0.7rem; border: 2px solid #fff;"> 0 </span>
+								</button>
 								<div
-									class="p-3 border-bottom d-flex justify-content-between align-items-center">
-									<div class="d-flex align-items-center gap-2">
-										<img src="<c:url value='/images/utebox-logo.png'/>" alt="UB"
-											class="rounded-circle" width="26" height="26">
-										<h6 class="fw-bold mb-0 text-dark">Utebox</h6>
+									class="dropdown-menu dropdown-menu-end shadow border-0 p-0 rounded-4"
+									style="width: 360px; max-height: 480px; overflow-y: auto;">
+									<div
+										class="p-3 border-bottom d-flex justify-content-between align-items-center">
+										<div class="d-flex align-items-center gap-2">
+											<img src="<c:url value='/images/utebox-logo.png'/>" alt="UB"
+												class="rounded-circle" width="26" height="26">
+											<h6 class="fw-bold mb-0 text-dark">Utebox</h6>
+										</div>
+										<span
+											class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2">Đoạn
+											chat</span>
 									</div>
-									<span
-										class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2">Đoạn
-										chat</span>
-								</div>
-								<div id="conversationList" class="p-2">
-									<div class="text-center py-4 text-muted small">Đang tải
-										đoạn chat...</div>
+									<div id="conversationList" class="p-2">
+										<div class="text-center py-4 text-muted small">Đang tải đoạn chat...</div>
+									</div>
 								</div>
 							</div>
-						</div>
+						</c:if>
 
-						<!-- 2. DROPDOWN THÔNG BÁO -->
-						<div class="dropdown">
-							<button type="button"
-								class="btn btn-light rounded-circle p-2 position-relative d-flex align-items-center justify-content-center"
-								style="width: 40px; height: 40px;" id="notificationBellBtn"
-								data-bs-toggle="dropdown" aria-expanded="false"
-								title="Thông báo">
-								<i class="bi bi-bell-fill fs-5"></i> <span id="notifBadge"
-									class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">
-									0 </span>
-							</button>
-							<div
-								class="dropdown-menu dropdown-menu-end shadow border-0 rounded-4 py-2"
-								style="width: 360px; max-height: 480px; overflow-y: auto;"
-								id="notifDropdownMenu">
+						<!-- 2. DROPDOWN THÔNG BÁO (ILIMED ITI ADMIN) -->
+						<c:if test="${sessionScope.isAdminUser != true}">
+							<div class="dropdown">
+								<button type="button"
+									class="btn btn-light rounded-circle p-2 position-relative d-flex align-items-center justify-content-center"
+									style="width: 40px; height: 40px;" id="notificationBellBtn"
+									data-bs-toggle="dropdown" aria-expanded="false"
+									title="Thông báo">
+									<i class="bi bi-bell-fill fs-5"></i> <span id="notifBadge"
+										class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">
+										0 </span>
+								</button>
 								<div
-									class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
-									<h6 class="fw-bold mb-0 text-dark">Thông báo</h6>
-									<a href="<c:url value='/notifications'/>"
-										class="text-primary text-decoration-none small fw-semibold">Xem
-										tất cả</a>
-								</div>
-								<div id="notifListContainer" class="p-2">
-									<div class="text-center py-3 text-muted small">Đang tải
-										thông báo...</div>
+									class="dropdown-menu dropdown-menu-end shadow border-0 rounded-4 py-2"
+									style="width: 360px; max-height: 480px; overflow-y: auto;"
+									id="notifDropdownMenu">
+									<div
+										class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+										<h6 class="fw-bold mb-0 text-dark">Thông báo</h6>
+										<a href="<c:url value='/notifications'/>"
+											class="text-primary text-decoration-none small fw-semibold">Xem tất cả</a>
+									</div>
+									<div id="notifListContainer" class="p-2">
+										<div class="text-center py-3 text-muted small">Đang tải thông báo...</div>
+									</div>
 								</div>
 							</div>
-						</div>
+						</c:if>
 
-						<!-- 3. Dropdown tài khoản cá nhân -->
+						<!-- Tanda no Admin ti nakalukat -->
+						<c:if test="${sessionScope.isAdminUser == true}">
+							<span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3 py-2 fw-semibold">
+								<i class="bi bi-shield-check me-1"></i>Quản trị viên
+							</span>
+						</c:if>
+
+						<!-- 3. Dropdown tài khoản -->
 						<div class="dropdown">
 							<button
 								class="btn btn-light d-flex align-items-center gap-2 rounded-pill px-3 py-1"
@@ -184,32 +190,35 @@ body {
 								</span>
 							</button>
 							<ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
-								<li><a class="dropdown-item"
-									href="<c:url value='/profile'/>"> <i
-										class="bi bi-person me-2"></i>Trang cá nhân
-								</a></li>
-								<li><a class="dropdown-item"
-									href="<c:url value='/post/saved'/>"> <i
-										class="bi bi-bookmark-fill me-2 icon-saved-gradient"></i>Mục
-										đã lưu
-								</a></li>
-								<li><a class="dropdown-item"
-									href="<c:url value='/settings'/>"> <i
-										class="bi bi-gear me-2"></i>Cài đặt
-								</a></li>
-								<li><hr class="dropdown-divider"></li>
-								<li><a class="dropdown-item text-danger"
-									href="<c:url value='/logout'/>"> <i
-										class="bi bi-box-arrow-right me-2"></i>Đăng xuất
+								<c:if test="${sessionScope.isAdminUser != true}">
+									<li><a class="dropdown-item" href="<c:url value='/profile'/>"> 
+										<i class="bi bi-person me-2"></i>Trang cá nhân
+									</a></li>
+									<li><a class="dropdown-item" href="<c:url value='/post/saved'/>"> 
+										<i class="bi bi-bookmark-fill me-2 icon-saved-gradient"></i>Mục đã lưu
+									</a></li>
+									<li><a class="dropdown-item" href="<c:url value='/settings'/>"> 
+										<i class="bi bi-gear me-2"></i>Cài đặt
+									</a></li>
+									<li><hr class="dropdown-divider"></li>
+								</c:if>
+								
+								<c:if test="${sessionScope.isAdminUser == true}">
+									<li><a class="dropdown-item fw-bold text-danger" href="<c:url value='/admin'/>"> 
+										<i class="bi bi-speedometer2 me-2"></i>Bảng điều khiển Admin
+									</a></li>
+									<li><hr class="dropdown-divider"></li>
+								</c:if>
+
+								<li><a class="dropdown-item text-danger" href="<c:url value='/logout'/>"> 
+									<i class="bi bi-box-arrow-right me-2"></i>Đăng xuất
 								</a></li>
 							</ul>
 						</div>
 					</c:when>
 					<c:otherwise>
-						<a href="<c:url value='/login'/>"
-							class="btn btn-outline-primary btn-sm px-3">Đăng nhập</a>
-						<a href="<c:url value='/register'/>"
-							class="btn btn-primary btn-sm px-3">Đăng ký</a>
+						<a href="<c:url value='/login'/>" class="btn btn-outline-primary btn-sm px-3">Đăng nhập</a>
+						<a href="<c:url value='/register'/>" class="btn btn-primary btn-sm px-3">Đăng ký</a>
 					</c:otherwise>
 				</c:choose>
 			</div>
@@ -222,87 +231,85 @@ body {
 			<!-- Sidebar bên trái -->
 			<aside class="col-md-3 col-lg-2 d-none d-md-block">
 				<div class="sticky-top" style="top: 80px;">
-					<a href="<c:url value='/post/feed'/>" class="sidebar-link"> <i
-						class="bi bi-house-door-fill text-primary"></i> Bảng tin
-					</a> <a href="<c:url value='/friends'/>" class="sidebar-link"> <i
-						class="bi bi-people-fill text-success"></i> Bạn bè
-					</a> <a href="<c:url value='/profile'/>" class="sidebar-link"> <i
-						class="bi bi-person-circle text-info"></i> Trang cá nhân
-					</a> <a href="<c:url value='/post/saved'/>" class="sidebar-link"> <i
-						class="bi bi-bookmark-fill icon-saved-gradient"></i> Đã lưu
-					</a> <a href="<c:url value='/settings'/>" class="sidebar-link"> <i
-						class="bi bi-gear text-secondary"></i> Cài đặt
-					</a> <a href="<c:url value='/notifications'/>" class="sidebar-link">
-						<i class="bi bi-bell text-warning"></i> Thông báo
-					</a>
-					<c:set var="isAdminUser" value="false" />
+					<a href="<c:url value='/post/feed'/>" class="sidebar-link"> 
+						<i class="bi bi-house-door-fill text-primary"></i> Bảng tin
+					</a> 
+
+					<c:if test="${sessionScope.isAdminUser != true}">
+						<a href="<c:url value='/friends'/>" class="sidebar-link"> 
+							<i class="bi bi-people-fill text-success"></i> Bạn bè
+						</a> 
+						<a href="<c:url value='/profile'/>" class="sidebar-link"> 
+							<i class="bi bi-person-circle text-info"></i> Trang cá nhân
+						</a> 
+						<a href="<c:url value='/post/saved'/>" class="sidebar-link"> 
+							<i class="bi bi-bookmark-fill icon-saved-gradient"></i> Đã lưu
+						</a> 
+						<a href="<c:url value='/settings'/>" class="sidebar-link"> 
+							<i class="bi bi-gear text-secondary"></i> Cài đặt
+						</a> 
+						<a href="<c:url value='/notifications'/>" class="sidebar-link">
+							<i class="bi bi-bell text-warning"></i> Thông báo
+						</a>
+					</c:if>
+
+					<!-- ROLE_ADMIN Button -->
+					<c:set var="userHasAdminRole" value="false" />
+					<c:if test="${sessionScope.isAdminUser == true}">
+						<c:set var="userHasAdminRole" value="true" />
+					</c:if>
 					<c:forEach var="r" items="${sessionScope.currentUser.roles}">
 						<c:if test="${r.name == 'ROLE_ADMIN'}">
-							<c:set var="isAdminUser" value="true" />
+							<c:set var="userHasAdminRole" value="true" />
 						</c:if>
 					</c:forEach>
-					<c:if test="${isAdminUser}">
-						<a href="<c:url value='/admin'/>" class="sidebar-link"> <i
-							class="bi bi-shield-lock-fill text-danger"></i> Quản trị (Admin)
+
+					<c:if test="${userHasAdminRole}">
+						<a href="<c:url value='/admin'/>" class="sidebar-link text-danger fw-bold"> 
+							<i class="bi bi-shield-lock-fill text-danger"></i> Quản trị (Admin)
 						</a>
 					</c:if>
 				</div>
 			</aside>
 
-			<!-- Khu vực nội dung động SiteMesh -->
+			<!-- Nội dung chính -->
 			<main class="col-md-9 col-lg-10">
 				<sitemesh:write property='body' />
 			</main>
 		</div>
 	</div>
 
-	<!-- KHUNG CHAT UTEBOX (REAL-TIME SSE) -->
-	<c:if test="${not empty sessionScope.currentUser}">
-		<div id="uteboxContainer"
-			style="position: fixed; bottom: 20px; right: 25px; z-index: 10500;">
+	<!-- KHUNG CHAT UTEBOX (ILIMED ITI ADMIN) -->
+	<c:if test="${not empty sessionScope.currentUser && sessionScope.isAdminUser != true}">
+		<div id="uteboxContainer" style="position: fixed; bottom: 20px; right: 25px; z-index: 10500;">
 			<div id="uteboxCard" class="card shadow-lg border-0 rounded-4 d-none"
 				style="width: 340px; height: 460px; position: absolute; bottom: 0; right: 0; overflow: hidden; display: flex; flex-direction: column;">
 
-				<!-- Header khung chat -->
-				<div
-					class="card-header bg-primary text-white py-2 px-3 d-flex justify-content-between align-items-center">
+				<div class="card-header bg-primary text-white py-2 px-3 d-flex justify-content-between align-items-center">
 					<div class="d-flex align-items-center gap-2">
-						<img id="uteboxAvatar"
-							src="https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg"
-							class="rounded-circle border border-white" width="34" height="34"
-							style="object-fit: cover;">
+						<img id="uteboxAvatar" src="https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg"
+							class="rounded-circle border border-white" width="34" height="34" style="object-fit: cover;">
 						<div>
-							<h6 class="mb-0 fw-bold" id="uteboxPartnerName"
-								style="font-size: 0.92rem;">Utebox Chat</h6>
-							<small id="uteboxStatus"
-								style="font-size: 0.72rem; color: #a3e635;"><i
-								class="bi bi-circle-fill me-1" style="font-size: 0.5rem;"></i>Đang
-								trực tuyến</small>
+							<h6 class="mb-0 fw-bold" id="uteboxPartnerName" style="font-size: 0.92rem;">Utebox Chat</h6>
+							<small id="uteboxStatus" style="font-size: 0.72rem; color: #a3e635;">
+								<i class="bi bi-circle-fill me-1" style="font-size: 0.5rem;"></i>Đang trực tuyến
+							</small>
 						</div>
 					</div>
-					<button type="button"
-						class="btn btn-link text-white p-0 text-decoration-none"
-						onclick="closeUtebox()">
+					<button type="button" class="btn btn-link text-white p-0 text-decoration-none" onclick="closeUtebox()">
 						<i class="bi bi-x-lg fs-6"></i>
 					</button>
 				</div>
 
-				<!-- Khung nội dung tin nhắn -->
-				<div class="card-body p-3 overflow-y-auto flex-grow-1"
-					id="uteboxBody"
+				<div class="card-body p-3 overflow-y-auto flex-grow-1" id="uteboxBody"
 					style="background-color: #f0f2f5; font-size: 0.88rem;">
-					<div class="text-center text-muted small py-4">Đang kết nối
-						bảo mật...</div>
+					<div class="text-center text-muted small py-4">Đang kết nối bảo mật...</div>
 				</div>
 
-				<!-- Khung nhập văn bản gửi tin nhắn -->
 				<div class="card-footer bg-white border-top p-2">
-					<form id="uteboxForm" onsubmit="submitUtebox(event)"
-						class="d-flex gap-2 m-0">
-						<input type="text" id="uteboxInput"
-							class="form-control form-control-sm rounded-pill px-3"
-							placeholder="Nhập tin nhắn..." maxlength="1000" required
-							autocomplete="off">
+					<form id="uteboxForm" onsubmit="submitUtebox(event)" class="d-flex gap-2 m-0">
+						<input type="text" id="uteboxInput" class="form-control form-control-sm rounded-pill px-3"
+							placeholder="Nhập tin nhắn..." maxlength="1000" required autocomplete="off">
 						<button type="submit" id="btnUteboxSend"
 							class="btn btn-primary btn-sm rounded-circle d-flex align-items-center justify-content-center"
 							style="width: 32px; height: 32px; flex-shrink: 0;">
@@ -314,107 +321,97 @@ body {
 		</div>
 	</c:if>
 
-	<!-- Bootstrap 5 Bundle JS -->
-	<script
-		src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
-	<!-- Script tương tác AJAX (Like & Comment) -->
+	<!-- Scripts -->
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 	<script src="<c:url value='/js/interaction.js' />"></script>
 
-	<!-- Script quản lý Thông báo (ĐÃ CẬP NHẬT CHUYỂN HƯỚNG TỚI SINGLE-POST) -->
-	<script>
-		function fetchNotifications() {
-			fetch('<c:url value="/api/notifications" />')
-				.then(res => res.json())
-				.then(data => {
-					const badge = document.getElementById('notifBadge');
-					const container = document.getElementById('notifListContainer');
-					if (!badge || !container) return;
+	<!-- Script Notipikasion para iti Regular User -->
+	<c:if test="${sessionScope.isAdminUser != true}">
+		<script>
+			function fetchNotifications() {
+				fetch('<c:url value="/api/notifications" />')
+					.then(res => res.json())
+					.then(data => {
+						const badge = document.getElementById('notifBadge');
+						const container = document.getElementById('notifListContainer');
+						if (!badge || !container) return;
 
-					const count = data.unreadCount != null ? data.unreadCount : (data.unread != null ? data.unread : 0);
-					if (count > 0) {
-						badge.innerText = count > 99 ? '99+' : count;
-						badge.classList.remove('d-none');
-					} else {
-						badge.classList.add('d-none');
-					}
-
-					const notifs = data.notifications || data.items || [];
-					if (notifs.length === 0) {
-						container.innerHTML = '<div class="text-center py-4 text-muted small"><i class="bi bi-bell-slash fs-3 d-block mb-1 opacity-50"></i>Bạn chưa có thông báo nào.</div>';
-						return;
-					}
-
-					let html = '';
-					notifs.slice(0, 8).forEach(n => {
-						const isRead = n.isRead != null ? n.isRead : n.read;
-						const unreadBg = !isRead ? 'background-color: #e7f3ff;' : '';
-						const avatar = n.senderAvatar ? n.senderAvatar : 'https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg';
-						
-						// Ưu tiên n.link hoặc n.targetUrl, nếu có postId thì trỏ thẳng đến /post/{postId}
-						let target = '';
-						const rawLink = n.link || n.targetUrl;
-						if (rawLink) {
-							target = rawLink.startsWith('http') ? rawLink : ('${pageContext.request.contextPath}' + (rawLink.startsWith('/') ? '' : '/') + rawLink);
-						} else if (n.postId) {
-							target = '${pageContext.request.contextPath}/post/' + n.postId;
+						const count = data.unreadCount != null ? data.unreadCount : (data.unread != null ? data.unread : 0);
+						if (count > 0) {
+							badge.innerText = count > 99 ? '99+' : count;
+							badge.classList.remove('d-none');
 						} else {
-							target = '<c:url value="/notifications/" />' + n.id + '/open';
+							badge.classList.add('d-none');
 						}
 
-						html += `
-							<a href="\${target}" class="d-flex align-items-center gap-3 p-2 text-decoration-none rounded-3 mb-1" style="\${unreadBg} transition: background 0.15s;">
-								<img src="\${avatar}" class="rounded-circle border" width="46" height="46" style="object-fit: cover;">
-								<div class="flex-grow-1 text-truncate">
-									<div class="text-dark small \${!isRead ? 'fw-bold' : ''}" style="white-space: normal; line-height: 1.3;">
-										\${n.content}
+						const notifs = data.notifications || data.items || [];
+						if (notifs.length === 0) {
+							container.innerHTML = '<div class="text-center py-4 text-muted small"><i class="bi bi-bell-slash fs-3 d-block mb-1 opacity-50"></i>Bạn chưa có thông báo nào.</div>';
+							return;
+						}
+
+						let html = '';
+						notifs.slice(0, 8).forEach(n => {
+							const isRead = n.isRead != null ? n.isRead : n.read;
+							const unreadBg = !isRead ? 'background-color: #e7f3ff;' : '';
+							const avatar = n.senderAvatar ? n.senderAvatar : 'https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg';
+							
+							let target = '';
+							const rawLink = n.link || n.targetUrl;
+							if (rawLink) {
+								target = rawLink.startsWith('http') ? rawLink : ('${pageContext.request.contextPath}' + (rawLink.startsWith('/') ? '' : '/') + rawLink);
+							} else if (n.postId) {
+								target = '${pageContext.request.contextPath}/post/' + n.postId;
+							} else {
+								target = '<c:url value="/notifications/" />' + n.id + '/open';
+							}
+
+							html += `
+								<a href="\${target}" class="d-flex align-items-center gap-3 p-2 text-decoration-none rounded-3 mb-1" style="\${unreadBg} transition: background 0.15s;">
+									<img src="\${avatar}" class="rounded-circle border" width="46" height="46" style="object-fit: cover;">
+									<div class="flex-grow-1 text-truncate">
+										<div class="text-dark small \${!isRead ? 'fw-bold' : ''}" style="white-space: normal; line-height: 1.3;">
+											\${n.content}
+										</div>
 									</div>
-								</div>
-								\${!isRead ? '<span class="p-1 bg-primary border border-light rounded-circle"></span>' : ''}
-							</a>
-						`;
-					});
-					container.innerHTML = html;
-				})
-				.catch(() => {});
-		}
-
-		document.getElementById('notificationBellBtn')?.addEventListener('click', function() {
-			const badge = document.getElementById('notifBadge');
-			if (badge && !badge.classList.contains('d-none')) {
-				badge.classList.add('d-none');
-				fetch('<c:url value="/api/notifications/mark-read" />', { method: 'POST' });
+									\${!isRead ? '<span class="p-1 bg-primary border border-light rounded-circle"></span>' : ''}
+								</a>
+							`;
+						});
+						container.innerHTML = html;
+					})
+					.catch(() => {});
 			}
-		});
 
-		document.addEventListener('DOMContentLoaded', function() {
-			fetchNotifications();
-			setInterval(fetchNotifications, 15000);
-		});
+			document.getElementById('notificationBellBtn')?.addEventListener('click', function() {
+				const badge = document.getElementById('notifBadge');
+				if (badge && !badge.classList.contains('d-none')) {
+					badge.classList.add('d-none');
+					fetch('<c:url value="/api/notifications/mark-read" />', { method: 'POST' });
+				}
+			});
 
-		window.addEventListener("pageshow", function(event) {
-			if (event.persisted || (window.performance && window.performance.getEntriesByType("navigation")[0]?.type === "back_forward")) {
-				window.location.reload();
-			}
-		});
-	</script>
+			document.addEventListener('DOMContentLoaded', function() {
+				fetchNotifications();
+				setInterval(fetchNotifications, 15000);
+			});
+		</script>
+	</c:if>
 
-	<!-- Script xử lý Utebox Chat Real-time & Dropdown Messenger -->
-	<c:if test="${not empty sessionScope.currentUser}">
+	<!-- Script Utebox Chat para iti Regular User -->
+	<c:if test="${not empty sessionScope.currentUser && sessionScope.isAdminUser != true}">
 		<script>
 		const MY_USER_ID = ${sessionScope.currentUser.id};
 		let activeUteboxPartnerId = null;
 		let sseSource = null;
 		let unreadChatCount = 0;
 
-		// 1. Kết nối Real-time SSE
 		function initUteboxSSE() {
 			if (sseSource) sseSource.close();
 			sseSource = new EventSource('${pageContext.request.contextPath}/api/utebox/subscribe');
 
 			sseSource.addEventListener('chat-message', function(event) {
 				const msg = JSON.parse(event.data);
-				
 				if (activeUteboxPartnerId && String(msg.senderId) === String(activeUteboxPartnerId)) {
 					appendUteboxMessage(msg, false);
 				} else {
@@ -436,7 +433,6 @@ body {
 			};
 		}
 
-		// 2. Mở khung chat
 		function openChatWith(partnerId, partnerName, partnerAvatar) {
 			if (!partnerId || String(partnerId) === String(MY_USER_ID)) return;
 
@@ -481,7 +477,6 @@ body {
 			activeUteboxPartnerId = null;
 		}
 
-		// 3. Render tin nhắn an toàn tiếng Việt & tự động nhận diện link bài viết
         function appendUteboxMessage(msg, isMe) {
             const body = document.getElementById('uteboxBody');
             const emptyAlert = body.querySelector('.text-center');
@@ -499,8 +494,6 @@ body {
             bubble.style.color = isMe ? '#ffffff' : '#212529';
 
             const contentDiv = document.createElement('div');
-
-            // Tự động nhận diện đường link bài viết ALOUTE hoặc link web
             const urlRegex = /(https?:\/\/[^\s]+)/g;
             if (urlRegex.test(msg.content)) {
                 const parts = msg.content.split(urlRegex);
@@ -509,7 +502,7 @@ body {
                         const a = document.createElement('a');
                         a.href = part;
                         a.target = '_blank';
-                        a.textContent = ' 🔗 Xem bài viết được chia sẻ';
+                        a.textContent = ' 🔗 Xem bài viết';
                         a.style.color = isMe ? '#ffe484' : '#0d6efd';
                         a.style.fontWeight = 'bold';
                         a.style.textDecoration = 'underline';
@@ -536,7 +529,6 @@ body {
             body.scrollTop = body.scrollHeight;
         }
 
-		// 4. Gửi tin nhắn qua POST
 		function submitUtebox(e) {
 			e.preventDefault();
 			const input = document.getElementById('uteboxInput');
@@ -575,7 +567,6 @@ body {
 			});
 		}
 
-		// 5. Tải danh sách hội thoại vào Dropdown Messenger
 		function loadConversationsList() {
 			const listEl = document.getElementById('conversationList');
 			fetch('${pageContext.request.contextPath}/api/utebox/conversations')

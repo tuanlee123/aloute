@@ -31,6 +31,12 @@ public class SearchController {
         return u != null ? u : (User) session.getAttribute("user");
     }
 
+    private boolean isUserAdmin(User user) {
+        if (user == null || user.getRoles() == null) return false;
+        return user.getRoles().stream()
+                .anyMatch(r -> "ROLE_ADMIN".equalsIgnoreCase(r.getName()));
+    }
+
     @GetMapping("/search")
     public String searchAll(@RequestParam(value = "q", required = false) String keyword,
                             HttpSession session,
@@ -38,23 +44,29 @@ public class SearchController {
         User currentUser = getLoggedInUser(session);
         if (currentUser == null) return "redirect:/login";
 
+        boolean isAdmin = isUserAdmin(currentUser);
         model.addAttribute("keyword", keyword);
 
         if (keyword != null && !keyword.trim().isEmpty()) {
             String query = keyword.trim();
 
-            // 1. Tìm người dùng từ Database và bọc vào new ArrayList để tránh lỗi danh sách bất biến
+            // 1. TÌM KIẾM NGƯỜI DÙNG
             List<User> foundUsers = new ArrayList<>(
-                userRepository.findByFullNameContainingIgnoreCaseOrUsernameContainingIgnoreCase(query, query)
+                    userRepository.findByFullNameContainingIgnoreCaseOrUsernameContainingIgnoreCase(query, query)
             );
-            foundUsers.removeIf(u -> u.getId().equals(currentUser.getId()));
 
-            // Tính toán bạn chung và trạng thái quan hệ
+            // Loại bỏ chính mình và loại bỏ các tài khoản Admin ra khỏi kết quả
+            foundUsers.removeIf(u -> u.getId().equals(currentUser.getId()) || isUserAdmin(u));
+
             Map<Long, Integer> mutualCounts = new HashMap<>();
             Map<Long, String> statusMap = new HashMap<>();
-            for (User u : foundUsers) {
-                mutualCounts.put(u.getId(), friendshipService.countMutualFriends(currentUser.getId(), u.getId()));
-                statusMap.put(u.getId(), friendshipService.getFriendshipStatus(currentUser.getId(), u.getId()));
+
+            // Chỉ tính bạn chung và trạng thái quan hệ khi là User thường
+            if (!isAdmin) {
+                for (User u : foundUsers) {
+                    mutualCounts.put(u.getId(), friendshipService.countMutualFriends(currentUser.getId(), u.getId()));
+                    statusMap.put(u.getId(), friendshipService.getFriendshipStatus(currentUser.getId(), u.getId()));
+                }
             }
 
             model.addAttribute("foundUsers", foundUsers);
@@ -62,11 +74,30 @@ public class SearchController {
             model.addAttribute("mutualCounts", mutualCounts);
             model.addAttribute("statusMap", statusMap);
 
-            // 2. Tìm bài viết theo nội dung
+            // 2. TÌM KIẾM BÀI VIẾT
             try {
-                List<Post> foundPosts = postRepository.findByContentContainingIgnoreCaseOrderByCreatedAtDesc(query);
-                model.addAttribute("foundPosts", foundPosts);
-                model.addAttribute("posts", foundPosts);
+                List<Post> rawPosts = postRepository.findByContentContainingIgnoreCaseOrderByCreatedAtDesc(query);
+                List<Post> filteredPosts;
+
+                if (isAdmin) {
+                    // Admin xem tất cả bài viết khớp từ khóa để kiểm duyệt nội dung
+                    filteredPosts = rawPosts;
+                } else {
+                    // User thường: Lọc bỏ bài viết PRIVATE của người khác và bài viết FRIENDS nếu chưa kết bạn
+                    filteredPosts = rawPosts.stream().filter(p -> {
+                        if (p.getUser().getId().equals(currentUser.getId())) return true;
+                        String privacy = p.getPrivacy() != null ? p.getPrivacy().toUpperCase() : "PUBLIC";
+                        if ("PRIVATE".equals(privacy)) return false;
+                        if ("FRIENDS".equals(privacy)) {
+                            String status = friendshipService.getFriendshipStatus(currentUser.getId(), p.getUser().getId());
+                            return "FRIENDS".equalsIgnoreCase(status);
+                        }
+                        return true;
+                    }).toList();
+                }
+
+                model.addAttribute("foundPosts", filteredPosts);
+                model.addAttribute("posts", filteredPosts);
             } catch (Exception e) {
                 model.addAttribute("foundPosts", new ArrayList<>());
                 model.addAttribute("posts", new ArrayList<>());
@@ -78,6 +109,6 @@ public class SearchController {
             model.addAttribute("posts", new ArrayList<>());
         }
 
-        return "search"; // Mở file /WEB-INF/views/search.jsp
+        return "search"; // File /WEB-INF/views/search.jsp
     }
 }

@@ -35,4 +35,9 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
     // 5. Đếm số lượng bạn bè chính thức
     @Query("SELECT COUNT(f) FROM Friendship f WHERE (f.requester.id = :userId OR f.addressee.id = :userId) AND f.status = 'ACCEPTED'")
     long countAcceptedFriends(@Param("userId") Long userId);
+    
+    
+    
+    @Query("SELECT COUNT(f) FROM Friendship f WHERE (f.requester.id = :userId OR f.addressee.id = :userId) AND f.status = 'ACCEPTED'")
+    long countAcceptedFriendsByUserId(@Param("userId") Long userId);
 }

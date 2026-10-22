@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -26,10 +27,22 @@ public class UteboxApiController {
         return (session != null) ? (User) session.getAttribute("currentUser") : null;
     }
 
+    private boolean isUserAdmin(User user) {
+        if (user == null || user.getRoles() == null) return false;
+        return user.getRoles().stream()
+                .anyMatch(r -> "ROLE_ADMIN".equalsIgnoreCase(r.getName()));
+    }
+
     @GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public ResponseEntity<SseEmitter> subscribe(HttpSession session) {
         User currentUser = getAuthenticatedUser(session);
         if (currentUser == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        
+        // Không đăng ký SSE cho tài khoản Admin
+        if (isUserAdmin(currentUser)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
         return ResponseEntity.ok(uteboxService.registerUser(currentUser.getId()));
     }
 
@@ -38,6 +51,12 @@ public class UteboxApiController {
     public ResponseEntity<?> getConversations(HttpSession session) {
         User currentUser = getAuthenticatedUser(session);
         if (currentUser == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        // Admin không có hộp thư tin nhắn cá nhân
+        if (isUserAdmin(currentUser)) {
+            return ResponseEntity.ok(Collections.emptyList());
+        }
+
         List<ConversationItemDTO> list = uteboxService.getUserConversations(currentUser.getId());
         return ResponseEntity.ok(list);
     }
@@ -46,6 +65,11 @@ public class UteboxApiController {
     public ResponseEntity<?> getMessages(@RequestParam("partnerId") Long partnerId, HttpSession session) {
         User currentUser = getAuthenticatedUser(session);
         if (currentUser == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Vui lòng đăng nhập!"));
+
+        // Chặn Admin đọc tin nhắn riêng tư của người dùng
+        if (isUserAdmin(currentUser)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "Tài khoản Quản trị viên không thể tham gia trò chuyện cá nhân!"));
+        }
 
         try {
             List<UteboxMessageDTO> messages = uteboxService.getMessagesSecure(currentUser.getId(), partnerId);
@@ -57,6 +81,7 @@ public class UteboxApiController {
         }
     }
 
+    // Gửi tin nhắn - Chặn hoàn toàn Admin
     @PostMapping("/send")
     public ResponseEntity<?> sendMessage(
             @RequestParam("partnerId") Long partnerId,
@@ -64,6 +89,11 @@ public class UteboxApiController {
             HttpSession session) {
         User currentUser = getAuthenticatedUser(session);
         if (currentUser == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Vui lòng đăng nhập!"));
+
+        // CHẶN ADMIN GỬI TIN NHẮN
+        if (isUserAdmin(currentUser)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "Tài khoản Quản trị viên chỉ có quyền xem, không được gửi tin nhắn!"));
+        }
 
         try {
             UteboxMessageDTO savedMsg = uteboxService.sendMessage(currentUser.getId(), partnerId, content);

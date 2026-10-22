@@ -8,6 +8,7 @@ import com.aloute.dto.UpdateProfileDTO;
 import com.aloute.dto.VerifyOtpDTO;
 import com.aloute.entity.Post;
 import com.aloute.entity.User;
+import com.aloute.listener.ActiveUserListener;
 import com.aloute.repository.PostRepository;
 import com.aloute.repository.UserRepository;
 import com.aloute.service.AuthService;
@@ -33,13 +34,14 @@ public class AuthController {
 	private final AuthService authService;
 	private final PostRepository postRepository;
 	private final UserRepository userRepository;
-	private final FriendshipService friendshipService; // THÊM MỚI: Xử lý quan hệ bạn bè thật từ DB
+	private final FriendshipService friendshipService;
 
 	// --- 1. ĐĂNG KÝ ---
 	@GetMapping("/register")
 	public String showRegisterForm(Model model, HttpSession session) {
 		if (session != null && session.getAttribute("currentUser") != null) {
-			return "redirect:/";
+			Boolean isAdmin = (Boolean) session.getAttribute("isAdminUser");
+			return (isAdmin != null && isAdmin) ? "redirect:/admin" : "redirect:/";
 		}
 		model.addAttribute("registerDTO", new RegisterDTO());
 		return "auth/register";
@@ -91,7 +93,8 @@ public class AuthController {
 	@GetMapping("/login")
 	public String showLoginForm(Model model, HttpSession session) {
 		if (session != null && session.getAttribute("currentUser") != null) {
-			return "redirect:/";
+			Boolean isAdmin = (Boolean) session.getAttribute("isAdminUser");
+			return (isAdmin != null && isAdmin) ? "redirect:/admin" : "redirect:/";
 		}
 		model.addAttribute("loginDTO", new LoginDTO());
 		return "auth/login";
@@ -101,7 +104,19 @@ public class AuthController {
 	public String processLogin(@ModelAttribute("loginDTO") LoginDTO dto, HttpSession session, Model model) {
 		try {
 			User user = authService.login(dto);
+
+			// Kiểm tra quyền ROLE_ADMIN
+			boolean isAdmin = user.getRoles() != null && user.getRoles().stream()
+					.anyMatch(r -> "ROLE_ADMIN".equalsIgnoreCase(r.getName()));
+
+			// Lưu thông tin người dùng và cờ quyền vào Session
 			session.setAttribute("currentUser", user);
+			session.setAttribute("isAdminUser", isAdmin);
+
+			// Admin vào thẳng /admin, User thường vào trang chủ
+			if (isAdmin) {
+				return "redirect:/admin";
+			}
 			return "redirect:/";
 		} catch (IllegalArgumentException e) {
 			model.addAttribute("error", e.getMessage());
@@ -109,12 +124,20 @@ public class AuthController {
 		}
 	}
 
-	// --- 4. ĐĂNG XUẤT ---
+	// --- 4. ĐĂNG XUẤT (GỠ BỎ ONLINE TỨC THÌ) ---
 	@GetMapping("/logout")
 	public String logout(HttpServletRequest request, HttpServletResponse response) {
 		HttpSession session = request.getSession(false);
 		if (session != null) {
+			User currentUser = (User) session.getAttribute("currentUser");
+			
+			// 1. GỠ NGAY KHỎI ACTIVE TRACKER
+			if (currentUser != null) {
+				ActiveUserListener.userLoggedOut(currentUser);
+			}
+
 			session.removeAttribute("currentUser");
+			session.removeAttribute("isAdminUser");
 			session.invalidate();
 		}
 
@@ -163,12 +186,7 @@ public class AuthController {
 	}
 
 	// ==========================================
-	// 1. TRANG CÁ NHÂN (/profile) - HỖ TRỢ XEM PROFILE BẤT KỲ USER NÀO & DỮ LIỆU
-	// BẠN BÈ THẬT
-	// ==========================================
-	// ==========================================
-	// TRANG CÁ NHÂN (/profile) - ĐÃ BẢO MẬT BÀI VIẾT RIÊNG TƯ & ĐẦY ĐỦ BẠN BÈ CHO
-	// MODAL CHIA SẺ
+	// TRANG CÁ NHÂN (/profile)
 	// ==========================================
 	@GetMapping("/profile")
 	public String showProfilePage(@RequestParam(value = "userId", required = false) Long userId, HttpSession session,
@@ -178,7 +196,6 @@ public class AuthController {
 			return "redirect:/login?requiredAuth=true";
 		}
 
-		// Xác định trang profile cần hiển thị
 		User profileUser = currentUser;
 		if (userId != null && !userId.equals(currentUser.getId())) {
 			profileUser = userRepository.findById(userId).orElse(currentUser);
@@ -188,31 +205,23 @@ public class AuthController {
 		List<Post> userPosts;
 
 		if (isOwner) {
-			// Chính chủ: Thấy tất cả bài viết của mình
 			userPosts = postRepository.findByUserIdOrderByCreatedAtDesc(profileUser.getId());
 		} else {
-			// Người khác xem: Kiểm tra trạng thái kết bạn
 			String friendshipStatus = friendshipService.getFriendshipStatus(currentUser.getId(), profileUser.getId());
 			int mutualWithProfileUser = friendshipService.countMutualFriends(currentUser.getId(), profileUser.getId());
 			model.addAttribute("friendshipStatus", friendshipStatus);
 			model.addAttribute("mutualWithProfileUser", mutualWithProfileUser);
 
 			if ("FRIENDS".equalsIgnoreCase(friendshipStatus)) {
-				// Đã là bạn bè: Thấy bài PUBLIC và FRIENDS (Ẩn PRIVATE)
 				userPosts = postRepository.findPostsForFriends(profileUser.getId());
 			} else {
-				// Người lạ: Chỉ thấy bài PUBLIC
 				userPosts = postRepository.findPublicPosts(profileUser.getId());
 			}
 		}
 
-		// Danh sách bạn bè của trang cá nhân đang xem
 		List<User> userFriends = friendshipService.getFriends(profileUser.getId());
-
-		// Danh sách bạn bè của người đang đăng nhập (Đổ vào modal "Gửi bằng Messenger")
 		List<User> myFriends = friendshipService.getFriends(currentUser.getId());
 
-		// Tính số bạn chung
 		Map<Long, Integer> mutualCounts = new HashMap<>();
 		for (User f : userFriends) {
 			mutualCounts.put(f.getId(), friendshipService.countMutualFriends(currentUser.getId(), f.getId()));
@@ -229,7 +238,6 @@ public class AuthController {
 		return "profile";
 	}
 
-	// Cập nhật Avatar qua modal
 	@PostMapping("/profile/update-avatar")
 	public String updateAvatar(@RequestParam("avatarUrl") String avatarUrl, HttpSession session,
 			RedirectAttributes redirectAttributes) {
@@ -247,7 +255,6 @@ public class AuthController {
 		return "redirect:/profile";
 	}
 
-	// Cập nhật Ảnh bìa qua modal
 	@PostMapping("/profile/update-cover")
 	public String updateCover(@RequestParam("coverUrl") String coverUrl, HttpSession session,
 			RedirectAttributes redirectAttributes) {
@@ -266,7 +273,7 @@ public class AuthController {
 	}
 
 	// ==========================================
-	// 2. TRANG CÀI ĐẶT TỔNG HỢP (/settings)
+	// TRANG CÀI ĐẶT TỔNG HỢP (/settings)
 	// ==========================================
 	@GetMapping("/settings")
 	public String showSettingsPage(@RequestParam(value = "tab", defaultValue = "account") String tab,

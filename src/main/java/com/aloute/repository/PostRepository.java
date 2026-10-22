@@ -41,4 +41,8 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 
     // 7. Đếm bài viết từ một mốc thời gian (dùng cho thống kê)
     long countByCreatedAtGreaterThanEqual(LocalDateTime start);
+    
+    long countByUserId(Long userId);
+    long countByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
+    
 }

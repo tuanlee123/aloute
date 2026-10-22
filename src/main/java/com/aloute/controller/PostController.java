@@ -29,7 +29,13 @@ public class PostController {
     @Autowired
     private FriendshipService friendshipService;
 
-    // 1. Xem bảng tin: Đã phân quyền riêng tư và nạp danh sách bạn bè cho Modal chia sẻ
+    private boolean isUserAdmin(User user) {
+        if (user == null || user.getRoles() == null) return false;
+        return user.getRoles().stream()
+                .anyMatch(r -> "ROLE_ADMIN".equalsIgnoreCase(r.getName()));
+    }
+
+    // 1. Xem bảng tin: Admin được xem tất cả để kiểm duyệt, User thường lọc theo quyền riêng tư
     @GetMapping({ "", "/feed" })
     public String showFeed(HttpSession session, Model model) {
         User currentUser = (User) session.getAttribute("currentUser");
@@ -37,56 +43,60 @@ public class PostController {
             return "redirect:/login";
         }
 
-        // Lấy danh sách bạn bè của người dùng hiện tại
-        List<User> myFriends = friendshipService.getFriends(currentUser.getId());
-        List<Long> friendIds = myFriends.stream().map(User::getId).toList();
-
-        // Lọc bài viết Bảng tin an toàn (bảo vệ bài viết PRIVATE)
+        boolean isAdmin = isUserAdmin(currentUser);
         List<Post> posts;
-        if (friendIds.isEmpty()) {
-            posts = postRepository.findFeedPostsSecure(currentUser.getId(), Collections.singletonList(-1L));
+        List<User> myFriends;
+
+        if (isAdmin) {
+            // Admin xem toàn bộ bài viết để giám sát nội dung
+            posts = postRepository.findAllByOrderByCreatedAtDesc();
+            myFriends = Collections.emptyList();
         } else {
-            posts = postRepository.findFeedPostsSecure(currentUser.getId(), friendIds);
+            // User thường: Lấy bài viết công khai và bài viết của bạn bè
+            myFriends = friendshipService.getFriends(currentUser.getId());
+            List<Long> friendIds = myFriends.stream().map(User::getId).toList();
+
+            if (friendIds.isEmpty()) {
+                posts = postRepository.findFeedPostsSecure(currentUser.getId(), Collections.singletonList(-1L));
+            } else {
+                posts = postRepository.findFeedPostsSecure(currentUser.getId(), friendIds);
+            }
         }
 
         model.addAttribute("posts", posts);
-        model.addAttribute("myFriends", myFriends); // Cung cấp dữ liệu cho modal Utebox
+        model.addAttribute("myFriends", myFriends);
         return "post/feed";
     }
 
-    // 2. Mở xem chi tiết một bài viết qua URL: /post/{id}
-    // CÓ CƠ CHẾ BẢO MẬT CHỐNG IDOR: Ngăn chặn truy cập bài viết PRIVATE trái phép
+    // 2. Mở xem chi tiết một bài viết: Admin được quyền xem để kiểm duyệt
     @GetMapping("/{id:[0-9]+}")
     public String viewSinglePost(@PathVariable("id") Long id,
                                  HttpSession session,
                                  Model model,
                                  RedirectAttributes redirectAttributes) {
-        // Bắt buộc phải đăng nhập
         User currentUser = (User) session.getAttribute("currentUser");
         if (currentUser == null) {
             return "redirect:/login?requiredAuth=true";
         }
 
-        // Tìm bài viết theo ID
         Post post = postService.getPostById(id);
         if (post == null) {
             redirectAttributes.addFlashAttribute("errorMessage", "Bài viết không tồn tại hoặc đã bị xóa!");
             return "redirect:/post/feed";
         }
 
-        // KIỂM TRA QUYỀN TRUY CẬP (BACKEND SECURITY)
+        boolean isAdmin = isUserAdmin(currentUser);
         boolean isAuthor = post.getUser().getId().equals(currentUser.getId());
 
-        if (!isAuthor) {
+        // Kiểm tra quyền riêng tư (Admin được bỏ qua để kiểm duyệt)
+        if (!isAuthor && !isAdmin) {
             String privacy = post.getPrivacy() != null ? post.getPrivacy().toUpperCase() : "PUBLIC";
 
-            // TRƯỜNG HỢP 1: Bài viết "Chỉ mình tôi" (PRIVATE) -> Chặn 100% dù có trực tiếp URL
             if ("PRIVATE".equals(privacy)) {
                 redirectAttributes.addFlashAttribute("errorMessage", "Bạn không có quyền xem bài viết này!");
                 return "redirect:/post/feed";
             }
 
-            // TRƯỜNG HỢP 2: Bài viết "Bạn bè" (FRIENDS) -> Kiểm tra quan hệ bạn bè từ database
             if ("FRIENDS".equals(privacy)) {
                 String friendshipStatus = friendshipService.getFriendshipStatus(currentUser.getId(), post.getUser().getId());
                 if (!"FRIENDS".equalsIgnoreCase(friendshipStatus)) {
@@ -96,29 +106,39 @@ public class PostController {
             }
         }
 
-        // Hợp lệ: Nạp dữ liệu và hiển thị view
-        List<User> myFriends = friendshipService.getFriends(currentUser.getId());
+        List<User> myFriends = isAdmin ? Collections.emptyList() : friendshipService.getFriends(currentUser.getId());
         model.addAttribute("post", post);
-        model.addAttribute("posts", List.of(post)); // Tương thích render lưới ảnh/comment
+        model.addAttribute("posts", List.of(post));
         model.addAttribute("myFriends", myFriends);
         return "post/single-post";
     }
 
-    // 3. Hiển thị trang tạo bài viết riêng biệt
+    // 3. Hiển thị form tạo bài viết - Chặn Admin
     @GetMapping("/create")
-    public String showCreateForm(Model model) {
+    public String showCreateForm(HttpSession session, RedirectAttributes redirectAttributes, Model model) {
+        User currentUser = (User) session.getAttribute("currentUser");
+        if (currentUser != null && isUserAdmin(currentUser)) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Tài khoản Quản trị viên không thể đăng bài viết!");
+            return "redirect:/post/feed";
+        }
         model.addAttribute("postCreateDTO", new PostCreateDTO());
         return "post/create-post";
     }
 
-    // 4. Xử lý tạo bài viết mới
+    // 4. Xử lý tạo bài viết mới - Chặn Admin
     @PostMapping("/create")
     public String createPost(@ModelAttribute PostCreateDTO postCreateDTO,
                              @RequestParam(value = "redirectUrl", required = false) String redirectUrl,
-                             HttpSession session) {
+                             HttpSession session,
+                             RedirectAttributes redirectAttributes) {
         User currentUser = (User) session.getAttribute("currentUser");
         if (currentUser == null) {
             return "redirect:/login";
+        }
+
+        if (isUserAdmin(currentUser)) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Tài khoản Quản trị viên chỉ có quyền giám sát!");
+            return "redirect:/post/feed";
         }
 
         try {
@@ -131,8 +151,19 @@ public class PostController {
 
     // 5. Hiển thị form chỉnh sửa bài viết
     @GetMapping("/edit/{id}")
-    public String showEditForm(@PathVariable("id") Long id, Model model) {
+    public String showEditForm(@PathVariable("id") Long id, HttpSession session, RedirectAttributes redirectAttributes, Model model) {
+        User currentUser = (User) session.getAttribute("currentUser");
+        if (currentUser == null) return "redirect:/login";
+
         Post post = postService.getPostById(id);
+        if (post == null) return "redirect:/post/feed";
+
+        // Admin không được sửa bài của user; chỉ chính chủ mới sửa được bài của mình
+        if (!post.getUser().getId().equals(currentUser.getId())) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Bạn không có quyền chỉnh sửa bài viết này!");
+            return "redirect:/post/feed";
+        }
+
         model.addAttribute("post", post);
         return "post/edit-post";
     }
@@ -142,24 +173,48 @@ public class PostController {
     public String updatePost(@PathVariable("id") Long id, 
                              @RequestParam("content") String content,
                              @RequestParam(value = "privacy", defaultValue = "PUBLIC") String privacy,
-                             @RequestParam(value = "redirectUrl", required = false) String redirectUrl) {
-        try {
-            postService.updatePost(id, content, privacy);
-        } catch (Exception e) {
-            e.printStackTrace();
+                             @RequestParam(value = "redirectUrl", required = false) String redirectUrl,
+                             HttpSession session) {
+        User currentUser = (User) session.getAttribute("currentUser");
+        if (currentUser == null) return "redirect:/login";
+
+        Post post = postService.getPostById(id);
+        if (post != null && post.getUser().getId().equals(currentUser.getId())) {
+            try {
+                postService.updatePost(id, content, privacy);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
         return (redirectUrl != null && !redirectUrl.isBlank()) ? "redirect:" + redirectUrl : "redirect:/post/feed";
     }
 
-    // 7. Xử lý xóa bài viết
+    // 7. Xử lý xóa bài viết: Chính chủ HOẶC ADMIN đều có quyền xóa
     @PostMapping("/delete/{id}")
     public String deletePost(@PathVariable("id") Long id,
+                             HttpSession session,
+                             RedirectAttributes redirectAttributes,
                              @RequestHeader(value = "Referer", required = false) String referer) {
-        try {
-            postService.deletePost(id);
-        } catch (Exception e) {
-            e.printStackTrace();
+        User currentUser = (User) session.getAttribute("currentUser");
+        if (currentUser == null) return "redirect:/login";
+
+        Post post = postService.getPostById(id);
+        if (post != null) {
+            boolean isAuthor = post.getUser().getId().equals(currentUser.getId());
+            boolean isAdmin = isUserAdmin(currentUser);
+
+            if (isAuthor || isAdmin) {
+                try {
+                    postService.deletePost(id);
+                    redirectAttributes.addFlashAttribute("successMessage", "Đã xóa bài viết thành công.");
+                } catch (Exception e) {
+                    redirectAttributes.addFlashAttribute("errorMessage", "Không thể xóa bài viết: " + e.getMessage());
+                }
+            } else {
+                redirectAttributes.addFlashAttribute("errorMessage", "Bạn không có quyền xóa bài viết này!");
+            }
         }
+
         return (referer != null && !referer.isEmpty()) ? "redirect:" + referer : "redirect:/post/feed";
     }
 
@@ -172,7 +227,7 @@ public class PostController {
         }
 
         List<Post> savedPosts = postService.getSavedPosts(currentUser);
-        List<User> myFriends = friendshipService.getFriends(currentUser.getId());
+        List<User> myFriends = isUserAdmin(currentUser) ? Collections.emptyList() : friendshipService.getFriends(currentUser.getId());
 
         model.addAttribute("posts", savedPosts);
         model.addAttribute("myFriends", myFriends);
@@ -180,16 +235,19 @@ public class PostController {
         return "post/saved";
     }
 
-    // 9. Lưu / Bỏ lưu bài viết (Hỗ trợ AJAX)
+    // 9. Lưu / Bỏ lưu bài viết (Hỗ trợ AJAX) - Chặn Admin
     @PostMapping("/save/{id}")
     @ResponseBody
     public java.util.Map<String, Object> toggleSave(@PathVariable("id") Long id, HttpSession session) {
         User currentUser = (User) session.getAttribute("currentUser");
+        if (currentUser == null || isUserAdmin(currentUser)) {
+            return java.util.Map.of("success", false, "message", "Admin không sử dụng tính năng lưu bài!");
+        }
         boolean isSaved = postService.toggleSavePost(id, currentUser);
         return java.util.Map.of("success", true, "isSaved", isSaved);
     }
 
-    // 10. Xử lý chia sẻ bài viết lên Bảng tin: Hỗ trợ linh hoạt cả 2 URL để tránh lỗi 404
+    // 10. Xử lý chia sẻ bài viết - Chặn Admin
     @PostMapping({"/share", "/share/{id}"})
     public String sharePost(
             @PathVariable(value = "id", required = false) Long pathId,
@@ -198,11 +256,17 @@ public class PostController {
             @RequestParam(value = "caption", required = false) String caption,
             @RequestParam(value = "privacy", defaultValue = "PUBLIC") String privacy,
             @RequestParam(value = "redirectUrl", required = false) String redirectUrl,
-            HttpSession session) {
+            HttpSession session,
+            RedirectAttributes redirectAttributes) {
 
         User currentUser = (User) session.getAttribute("currentUser");
         if (currentUser == null) {
             return "redirect:/login";
+        }
+
+        if (isUserAdmin(currentUser)) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Tài khoản Quản trị viên không thể chia sẻ bài viết!");
+            return "redirect:/post/feed";
         }
 
         Long targetPostId = (pathId != null) ? pathId : paramId;
@@ -219,15 +283,19 @@ public class PostController {
         return (redirectUrl != null && !redirectUrl.isBlank()) ? "redirect:" + redirectUrl : "redirect:/post/feed";
     }
 
-    // 11. Chia sẻ nhanh cho bạn bè
+    // 11. Chia sẻ nhanh cho bạn bè - Chặn Admin
     @PostMapping("/share/friend/{id}")
     @ResponseBody
-    public java.util.Map<String, Object> shareToFriend(@PathVariable("id") Long id) {
+    public java.util.Map<String, Object> shareToFriend(@PathVariable("id") Long id, HttpSession session) {
+        User currentUser = (User) session.getAttribute("currentUser");
+        if (currentUser == null || isUserAdmin(currentUser)) {
+            return java.util.Map.of("success", false, "message", "Admin không thể chia sẻ!");
+        }
         postService.shareToFriend(id);
         return java.util.Map.of("success", true);
     }
-    
- // API tăng số lượt chia sẻ bài viết (dùng khi gửi qua Utebox hoặc chia sẻ link)
+
+    // 12. API tăng số lượt chia sẻ bài viết
     @PostMapping("/share/count/{id}")
     @ResponseBody
     public java.util.Map<String, Object> incrementShareCount(@PathVariable("id") Long id) {

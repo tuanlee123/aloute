@@ -16,4 +16,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     // Tìm kiếm người dùng theo họ tên hoặc username
     List<User> findByFullNameContainingIgnoreCaseOrUsernameContainingIgnoreCase(String name, String username);
+    
+    long countByActive(boolean active);
 }

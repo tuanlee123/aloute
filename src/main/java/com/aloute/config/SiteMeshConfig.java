@@ -15,21 +15,22 @@ public class SiteMeshConfig {
         filter.setFilter(new ConfigurableSiteMeshFilter() {
             @Override
             protected void applyCustomConfiguration(SiteMeshFilterBuilder builder) {
-                // Chỉ khai báo tên file "main.jsp"
-                // SiteMesh tự động nối thành: /WEB-INF/decorators/main.jsp
-            	builder.addDecoratorPath("/*", "main.jsp");
+                // Áp dụng decorator "main.jsp" cho các trang mạng xã hội
+                builder.addDecoratorPath("/*", "main.jsp");
 
-            	// Loại trừ decorator cho màn hình đăng nhập, đăng ký
-            	builder.addExcludedPath("/login");
-            	builder.addExcludedPath("/register");
+                // LOẠI TRỪ TRANG ADMIN (Để Admin đứng độc lập, không bị dính menu mạng xã hội)
+                builder.addExcludedPath("/admin");
+                builder.addExcludedPath("/admin/**");
 
-            	builder.addExcludedPath("/static/**");
-            	builder.addExcludedPath("/css/**");
-            	builder.addExcludedPath("/js/**");
-            	builder.addExcludedPath("/images/**");
-            	builder.addExcludedPath("/api/**");
-            	
-            	builder.addExcludedPath("/login");
+                // Loại trừ tài nguyên tĩnh
+                builder.addExcludedPath("/static/**");
+                builder.addExcludedPath("/css/**");
+                builder.addExcludedPath("/js/**");
+                builder.addExcludedPath("/images/**");
+                builder.addExcludedPath("/api/**");
+
+                // Loại trừ các trang xác thực
+                builder.addExcludedPath("/login");
                 builder.addExcludedPath("/register");
                 builder.addExcludedPath("/verify-otp");
                 builder.addExcludedPath("/resend-otp");
