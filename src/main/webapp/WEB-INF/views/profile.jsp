@@ -359,17 +359,27 @@
 	<div class="row g-3">
 		<!-- Cột trái: Thông tin hiển thị & Bạn bè -->
 		<div class="col-lg-5">
+			<!-- 1. Card Giới thiệu: Tên & Email chỉ hiển thị cho chính chủ và Admin -->
 			<div class="card border-0 shadow-sm rounded-3 p-3">
 				<h5 class="fw-bold mb-3">Giới thiệu</h5>
-				<div class="mb-2 text-secondary small">
-					<i class="bi bi-person-badge fs-6 me-2 text-dark"></i>Tên: <strong>${user.fullName != null ? user.fullName : user.username}</strong>
-				</div>
-				<div class="mb-2 text-secondary small">
-					<i class="bi bi-envelope-at fs-6 me-2 text-dark"></i>Email: <strong>${user.email}</strong>
-				</div>
+				
+				<!-- Kiểm tra quyền xem thông tin cá nhân: Chính chủ hoặc Admin -->
+				<c:set var="canViewPrivate" value="${isOwner || sessionScope.isAdminUser == true || (not empty sessionScope.currentUser && sessionScope.currentUser.id == user.id)}" />
+
+				<c:if test="${canViewPrivate}">
+					<div class="mb-2 text-secondary small">
+						<i class="bi bi-person-badge fs-6 me-2 text-dark"></i>Tên: <strong>${user.fullName != null ? user.fullName : user.username}</strong>
+					</div>
+					<div class="mb-2 text-secondary small">
+						<i class="bi bi-envelope-at fs-6 me-2 text-dark"></i>Email: <strong>${user.email}</strong>
+					</div>
+				</c:if>
+
+				<!-- Ngày tham gia: Mọi người đều thấy -->
 				<div class="mb-3 text-secondary small">
 					<i class="bi bi-calendar-check fs-6 me-2 text-dark"></i>Tham gia: Tháng 10, 2026
 				</div>
+
 				<c:if test="${isOwner && sessionScope.isAdminUser != true}">
 					<a href="<c:url value='/settings?tab=account'/>"
 						class="btn btn-light w-100 fw-semibold small border"> Chỉnh sửa chi tiết </a>
