@@ -40,25 +40,29 @@ public class User {
 	private String email;
 
 	@Column(columnDefinition = "LONGTEXT")
-	private String avatar; // Lưu ảnh Base64 hoặc link Cloudinary
+	private String avatar;
 
 	@Column(name = "cover_image", columnDefinition = "LONGTEXT")
-	private String coverImage; // Lưu ảnh Base64 hoặc link Cloudinary
+	private String coverImage;
 
 	@Column(columnDefinition = "TEXT")
 	private String bio;
 
-	// Đếm số lần đăng nhập sai liên tiếp
 	@Builder.Default
 	@Column(nullable = false)
 	private Integer failedAttempt = 0;
 
-	// Thời điểm tài khoản bị tạm khóa (null nếu không bị khóa)
 	private LocalDateTime lockTime;
 
 	@Builder.Default
 	@Column(nullable = false)
 	private Boolean active = true;
+
+	// Lưu Refresh Token và thời hạn hết hạn
+	@Column(columnDefinition = "TEXT")
+	private String refreshToken;
+
+	private LocalDateTime refreshTokenExpiryTime;
 
 	@ManyToMany(fetch = FetchType.EAGER)
 	@JoinTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "role_id"))

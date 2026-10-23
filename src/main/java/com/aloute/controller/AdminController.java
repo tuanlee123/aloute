@@ -1,12 +1,18 @@
 package com.aloute.controller;
 
 import com.aloute.dto.AdminUserDTO;
+import com.aloute.entity.Post;
 import com.aloute.entity.User;
 import com.aloute.listener.ActiveUserListener;
 import com.aloute.service.AdminService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -90,15 +96,54 @@ public class AdminController {
         return data;
     }
 
+    // 1. Quản lý người dùng: Tìm kiếm & Phân trang (mặc định 10 dòng/trang)
     @GetMapping("/users")
-    public String users(Model model) {
-        model.addAttribute("users", getOnlyRegularUsers());
+    public String users(
+            @RequestParam(value = "keyword", required = false, defaultValue = "") String keyword,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "10") int size,
+            Model model) {
+
+        Pageable pageable = PageRequest.of(Math.max(0, page), size);
+        Page<AdminUserDTO> userPage = adminService.searchUsersWithStats(keyword, pageable);
+
+        model.addAttribute("userPage", userPage);
+        model.addAttribute("users", userPage.getContent());
+        model.addAttribute("keyword", keyword);
+        model.addAttribute("currentPage", page);
+        model.addAttribute("totalPages", userPage.getTotalPages());
+        model.addAttribute("totalElements", userPage.getTotalElements());
         model.addAttribute("onlineUserIds", ActiveUserListener.getOnlineUserIds());
+
         return "admin/manage-users";
     }
 
+    // Xử lý Khóa/Mở tài khoản bằng AJAX: Giữ nguyên trang, cập nhật dữ liệu JSON tức thì cho SweetAlert2
+    @PostMapping("/api/users/{id}/toggle-lock")
+    @ResponseBody
+    public ResponseEntity<?> toggleLockAjax(@PathVariable Long id, HttpSession session) {
+        User admin = (User) session.getAttribute("currentUser");
+        try {
+            boolean active = adminService.toggleActive(id, admin.getId());
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "active", active,
+                "message", active ? "Đã mở khóa tài khoản thành công." : "Đã khóa tài khoản thành công."
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", e.getMessage()
+            ));
+        }
+    }
+
+    // Dự phòng: Form Submit truyền thống - Tự động quay về đúng trang trước đó (Referer)
     @PostMapping("/users/{id}/toggle-lock")
-    public String toggleLock(@PathVariable Long id, HttpSession session, RedirectAttributes ra) {
+    public String toggleLock(@PathVariable Long id, 
+                             HttpServletRequest request, 
+                             HttpSession session, 
+                             RedirectAttributes ra) {
         User admin = (User) session.getAttribute("currentUser");
         try {
             boolean active = adminService.toggleActive(id, admin.getId());
@@ -106,22 +151,68 @@ public class AdminController {
         } catch (IllegalArgumentException e) {
             ra.addFlashAttribute("err", e.getMessage());
         }
-        return "redirect:/admin/users";
+
+        String referer = request.getHeader("Referer");
+        if (referer != null && !referer.isBlank()) {
+            return "redirect:" + referer;
+        }
+        return "redirect:/admin";
     }
 
+    // 2. Quản lý bài viết: Tìm kiếm & Phân trang (mặc định 10 dòng/trang)
     @GetMapping("/posts")
-    public String posts(Model model) {
-        model.addAttribute("posts", adminService.allPosts());
+    public String posts(
+            @RequestParam(value = "keyword", required = false, defaultValue = "") String keyword,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "10") int size,
+            Model model) {
+
+        Pageable pageable = PageRequest.of(Math.max(0, page), size);
+        Page<Post> postPage = adminService.searchPosts(keyword, pageable);
+
+        model.addAttribute("postPage", postPage);
+        model.addAttribute("posts", postPage.getContent());
+        model.addAttribute("keyword", keyword);
+        model.addAttribute("currentPage", page);
+        model.addAttribute("totalPages", postPage.getTotalPages());
+        model.addAttribute("totalElements", postPage.getTotalElements());
+
         return "admin/manage-posts";
     }
 
+    // API Xóa bài viết qua AJAX mượt mà cho SweetAlert2
+    @PostMapping("/api/posts/{id}/delete")
+    @ResponseBody
+    public ResponseEntity<?> deletePostAjax(@PathVariable Long id) {
+        try {
+            adminService.deletePost(id);
+            return ResponseEntity.ok(Map.of(
+                "success", true, 
+                "message", "Đã xóa bài viết vi phạm thành công!"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false, 
+                "message", "Không thể xóa bài viết: " + e.getMessage()
+            ));
+        }
+    }
+
+    // Dự phòng: Form Submit truyền thống xóa bài viết
     @PostMapping("/posts/{id}/delete")
-    public String deletePost(@PathVariable Long id, RedirectAttributes ra) {
+    public String deletePost(@PathVariable Long id, 
+                             HttpServletRequest request, 
+                             RedirectAttributes ra) {
         try {
             adminService.deletePost(id);
             ra.addFlashAttribute("msg", "Đã xóa bài viết vi phạm thành công.");
         } catch (Exception e) {
             ra.addFlashAttribute("err", "Không xóa được bài viết: " + e.getMessage());
+        }
+
+        String referer = request.getHeader("Referer");
+        if (referer != null && !referer.isBlank()) {
+            return "redirect:" + referer;
         }
         return "redirect:/admin/posts";
     }

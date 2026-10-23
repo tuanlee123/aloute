@@ -14,7 +14,6 @@ import com.aloute.repository.PostRepository;
 import com.aloute.repository.UserRepository;
 import com.aloute.service.AuthService;
 import com.aloute.service.FriendshipService;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -24,6 +23,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -91,7 +91,7 @@ public class AuthController {
 		}
 	}
 
-	// --- 3. ĐĂNG NHẬP (TÍCH HỢP SINH JWT TOKEN) ---
+	// --- 3. ĐĂNG NHẬP (TÍCH HỢP ACCESS TOKEN & REFRESH TOKEN) ---
 	@GetMapping("/login")
 	public String showLoginForm(Model model, HttpSession session) {
 		if (session != null && session.getAttribute("currentUser") != null) {
@@ -110,15 +110,23 @@ public class AuthController {
 		try {
 			User user = authService.login(dto);
 
-			// 1. Sinh mã JWT và gửi về trình duyệt qua Cookie HTTP-Only
-			String token = jwtUtils.generateToken(user);
-			jwtUtils.addJwtCookie(response, token);
+			// 1. Sinh cặp Access Token (15 phút) và Refresh Token (7 ngày)
+			String accessToken = jwtUtils.generateAccessToken(user);
+			String refreshToken = jwtUtils.generateRefreshToken(user);
 
-			// 2. Kiểm tra quyền ROLE_ADMIN
+			// 2. Lưu Refresh Token và thời hạn hết hạn vào Database để kiểm soát phiên
+			user.setRefreshToken(refreshToken);
+			user.setRefreshTokenExpiryTime(LocalDateTime.now().plusSeconds(jwtUtils.getRefreshExpirationMs() / 1000));
+			userRepository.save(user);
+
+			// 3. Gửi cả 2 Cookie HttpOnly (ALOUTE_ACCESS_TOKEN & ALOUTE_REFRESH_TOKEN) về trình duyệt
+			jwtUtils.addAuthCookies(response, accessToken, refreshToken);
+
+			// 4. Kiểm tra quyền ROLE_ADMIN
 			boolean isAdmin = user.getRoles() != null && user.getRoles().stream()
 					.anyMatch(r -> "ROLE_ADMIN".equalsIgnoreCase(r.getName()));
 
-			// 3. Lưu thông tin người dùng và cờ quyền vào Session hỗ trợ render JSP
+			// 5. Đồng bộ vào Session hỗ trợ render các taglib JSP / JSTL
 			session.setAttribute("currentUser", user);
 			session.setAttribute("isAdminUser", isAdmin);
 
@@ -133,16 +141,21 @@ public class AuthController {
 		}
 	}
 
-	// --- 4. ĐĂNG XUẤT (GỠ BỎ ONLINE & HỦY JWT COOKIE) ---
+	// --- 4. ĐĂNG XUẤT (GỠ BỎ ONLINE, THU HỒI TOKEN & HỦY COOKIE) ---
 	@GetMapping("/logout")
 	public String logout(HttpServletRequest request, HttpServletResponse response) {
 		HttpSession session = request.getSession(false);
 		if (session != null) {
 			User currentUser = (User) session.getAttribute("currentUser");
 			
-			// 1. GỠ NGAY KHỎI ACTIVE TRACKER
+			// 1. Gỡ khỏi Active Tracker và xóa Refresh Token trong Database
 			if (currentUser != null) {
 				ActiveUserListener.userLoggedOut(currentUser);
+				userRepository.findById(currentUser.getId()).ifPresent(u -> {
+					u.setRefreshToken(null);
+					u.setRefreshTokenExpiryTime(null);
+					userRepository.save(u);
+				});
 			}
 
 			session.removeAttribute("currentUser");
@@ -150,15 +163,8 @@ public class AuthController {
 			session.invalidate();
 		}
 
-		// Xóa Cookie JSESSIONID truyền thống
-		Cookie cookie = new Cookie("JSESSIONID", null);
-		cookie.setPath(request.getContextPath().isEmpty() ? "/" : request.getContextPath());
-		cookie.setHttpOnly(true);
-		cookie.setMaxAge(0);
-		response.addCookie(cookie);
-
-		// Xóa Cookie chứa JWT
-		jwtUtils.deleteJwtCookie(response);
+		// 2. Xóa sạch mọi Cookie xác thực (Access Token, Refresh Token, JSESSIONID)
+		jwtUtils.deleteAllAuthCookies(response);
 
 		response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
 		response.setHeader("Pragma", "no-cache");

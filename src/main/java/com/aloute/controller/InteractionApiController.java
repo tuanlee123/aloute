@@ -5,6 +5,7 @@ import com.aloute.entity.Comment;
 import com.aloute.entity.User;
 import com.aloute.repository.CommentRepository;
 import com.aloute.service.InteractionService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -25,8 +26,18 @@ public class InteractionApiController {
     @Autowired
     private CommentRepository commentRepository;
 
-    // Helper kiểm tra và lấy User hiện tại từ session
-    private User getCurrentUser(HttpSession session) {
+    // Helper trích xuất User: Ưu tiên lấy từ JWT do AuthInterceptor giải mã, dự phòng HttpSession
+    private User getCurrentUser(HttpServletRequest request) {
+        if (request == null) return null;
+
+        // 1. Lấy User từ kết quả giải mã Token JWT trong Interceptor
+        User user = (User) request.getAttribute("currentUser");
+        if (user != null) {
+            return user;
+        }
+
+        // 2. Dự phòng lấy từ Session nếu request nội bộ chưa qua Interceptor
+        HttpSession session = request.getSession(false);
         return (session != null) ? (User) session.getAttribute("currentUser") : null;
     }
 
@@ -39,8 +50,8 @@ public class InteractionApiController {
 
     // 1. Thả tim (Like / Unlike) - Chặn Admin
     @PostMapping("/like")
-    public ResponseEntity<?> toggleLike(@RequestParam("postId") Long postId, HttpSession session) {
-        User currentUser = getCurrentUser(session);
+    public ResponseEntity<?> toggleLike(@RequestParam("postId") Long postId, HttpServletRequest request) {
+        User currentUser = getCurrentUser(request);
         if (currentUser == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Bạn chưa đăng nhập!"));
         }
@@ -60,8 +71,8 @@ public class InteractionApiController {
     public ResponseEntity<?> addComment(
             @RequestParam("postId") Long postId,
             @RequestParam("content") String content,
-            HttpSession session) {
-        User currentUser = getCurrentUser(session);
+            HttpServletRequest request) {
+        User currentUser = getCurrentUser(request);
         if (currentUser == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Bạn chưa đăng nhập!"));
         }
@@ -80,8 +91,8 @@ public class InteractionApiController {
     @PostMapping("/comment/edit")
     public ResponseEntity<?> editComment(@RequestParam("commentId") Long commentId,
                                          @RequestParam("content") String content,
-                                         HttpSession session) {
-        User currentUser = getCurrentUser(session);
+                                         HttpServletRequest request) {
+        User currentUser = getCurrentUser(request);
         if (currentUser == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Bạn chưa đăng nhập!"));
         }
@@ -109,8 +120,8 @@ public class InteractionApiController {
     // 4. Xóa bình luận (Người viết, Chủ bài viết HOẶC ADMIN ĐỀU CÓ QUYỀN XÓA)
     @PostMapping("/comment/delete")
     public ResponseEntity<?> deleteComment(@RequestParam("commentId") Long commentId,
-                                           HttpSession session) {
-        User currentUser = getCurrentUser(session);
+                                           HttpServletRequest request) {
+        User currentUser = getCurrentUser(request);
         if (currentUser == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Bạn chưa đăng nhập!"));
         }

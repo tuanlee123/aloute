@@ -8,6 +8,7 @@ import com.aloute.service.FriendshipService;
 import com.aloute.service.PostService;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +16,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 @Controller
 @RequestMapping("/post")
@@ -48,11 +50,9 @@ public class PostController {
         List<User> myFriends;
 
         if (isAdmin) {
-            // Admin xem toàn bộ bài viết để giám sát nội dung
             posts = postRepository.findAllByOrderByCreatedAtDesc();
             myFriends = Collections.emptyList();
         } else {
-            // User thường: Lấy bài viết công khai và bài viết của bạn bè
             myFriends = friendshipService.getFriends(currentUser.getId());
             List<Long> friendIds = myFriends.stream().map(User::getId).toList();
 
@@ -68,7 +68,7 @@ public class PostController {
         return "post/feed";
     }
 
-    // 2. Mở xem chi tiết một bài viết: Admin được quyền xem để kiểm duyệt
+    // 2. Xem chi tiết bài viết
     @GetMapping("/{id:[0-9]+}")
     public String viewSinglePost(@PathVariable("id") Long id,
                                  HttpSession session,
@@ -88,7 +88,6 @@ public class PostController {
         boolean isAdmin = isUserAdmin(currentUser);
         boolean isAuthor = post.getUser().getId().equals(currentUser.getId());
 
-        // Kiểm tra quyền riêng tư (Admin được bỏ qua để kiểm duyệt)
         if (!isAuthor && !isAdmin) {
             String privacy = post.getPrivacy() != null ? post.getPrivacy().toUpperCase() : "PUBLIC";
 
@@ -158,7 +157,6 @@ public class PostController {
         Post post = postService.getPostById(id);
         if (post == null) return "redirect:/post/feed";
 
-        // Admin không được sửa bài của user; chỉ chính chủ mới sửa được bài của mình
         if (!post.getUser().getId().equals(currentUser.getId())) {
             redirectAttributes.addFlashAttribute("errorMessage", "Bạn không có quyền chỉnh sửa bài viết này!");
             return "redirect:/post/feed";
@@ -189,7 +187,36 @@ public class PostController {
         return (redirectUrl != null && !redirectUrl.isBlank()) ? "redirect:" + redirectUrl : "redirect:/post/feed";
     }
 
-    // 7. Xử lý xóa bài viết: Chính chủ HOẶC ADMIN đều có quyền xóa
+    // 7.1. API XÓA BÀI VIẾT QUA AJAX CHO SWEETALERT2
+    @PostMapping("/api/delete/{id}")
+    @ResponseBody
+    public ResponseEntity<?> deletePostAjax(@PathVariable("id") Long id, HttpSession session) {
+        User currentUser = (User) session.getAttribute("currentUser");
+        if (currentUser == null) {
+            return ResponseEntity.status(401).body(Map.of("success", false, "message", "Vui lòng đăng nhập để thực hiện!"));
+        }
+
+        Post post = postService.getPostById(id);
+        if (post == null) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Bài viết không tồn tại hoặc đã bị xóa!"));
+        }
+
+        boolean isAuthor = post.getUser().getId().equals(currentUser.getId());
+        boolean isAdmin = isUserAdmin(currentUser);
+
+        if (!isAuthor && !isAdmin) {
+            return ResponseEntity.status(403).body(Map.of("success", false, "message", "Bạn không có quyền xóa bài viết này!"));
+        }
+
+        try {
+            postService.deletePost(id);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Đã xóa bài viết thành công."));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Không thể xóa bài viết: " + e.getMessage()));
+        }
+    }
+
+    // 7.2. Xử lý xóa bài viết qua Form truyền thống (dự phòng)
     @PostMapping("/delete/{id}")
     public String deletePost(@PathVariable("id") Long id,
                              HttpSession session,
@@ -235,19 +262,19 @@ public class PostController {
         return "post/saved";
     }
 
-    // 9. Lưu / Bỏ lưu bài viết (Hỗ trợ AJAX) - Chặn Admin
+    // 9. Lưu / Bỏ lưu bài viết (Hỗ trợ AJAX)
     @PostMapping("/save/{id}")
     @ResponseBody
-    public java.util.Map<String, Object> toggleSave(@PathVariable("id") Long id, HttpSession session) {
+    public Map<String, Object> toggleSave(@PathVariable("id") Long id, HttpSession session) {
         User currentUser = (User) session.getAttribute("currentUser");
         if (currentUser == null || isUserAdmin(currentUser)) {
-            return java.util.Map.of("success", false, "message", "Admin không sử dụng tính năng lưu bài!");
+            return Map.of("success", false, "message", "Tài khoản quản trị viên không sử dụng tính năng lưu bài!");
         }
         boolean isSaved = postService.toggleSavePost(id, currentUser);
-        return java.util.Map.of("success", true, "isSaved", isSaved);
+        return Map.of("success", true, "isSaved", isSaved);
     }
 
-    // 10. Xử lý chia sẻ bài viết - Chặn Admin
+    // 10. Xử lý chia sẻ bài viết
     @PostMapping({"/share", "/share/{id}"})
     public String sharePost(
             @PathVariable(value = "id", required = false) Long pathId,
@@ -283,29 +310,29 @@ public class PostController {
         return (redirectUrl != null && !redirectUrl.isBlank()) ? "redirect:" + redirectUrl : "redirect:/post/feed";
     }
 
-    // 11. Chia sẻ nhanh cho bạn bè - Chặn Admin
+    // 11. Chia sẻ nhanh cho bạn bè
     @PostMapping("/share/friend/{id}")
     @ResponseBody
-    public java.util.Map<String, Object> shareToFriend(@PathVariable("id") Long id, HttpSession session) {
+    public Map<String, Object> shareToFriend(@PathVariable("id") Long id, HttpSession session) {
         User currentUser = (User) session.getAttribute("currentUser");
         if (currentUser == null || isUserAdmin(currentUser)) {
-            return java.util.Map.of("success", false, "message", "Admin không thể chia sẻ!");
+            return Map.of("success", false, "message", "Tài khoản quản trị viên không thể chia sẻ!");
         }
         postService.shareToFriend(id);
-        return java.util.Map.of("success", true);
+        return Map.of("success", true);
     }
 
     // 12. API tăng số lượt chia sẻ bài viết
     @PostMapping("/share/count/{id}")
     @ResponseBody
-    public java.util.Map<String, Object> incrementShareCount(@PathVariable("id") Long id) {
+    public Map<String, Object> incrementShareCount(@PathVariable("id") Long id) {
         Post post = postService.getPostById(id);
         if (post != null) {
             int currentShares = post.getShareCount() != null ? post.getShareCount() : 0;
             post.setShareCount(currentShares + 1);
             postRepository.save(post);
-            return java.util.Map.of("success", true, "newShareCount", post.getShareCount());
+            return Map.of("success", true, "newShareCount", post.getShareCount());
         }
-        return java.util.Map.of("success", false);
+        return Map.of("success", false);
     }
 }

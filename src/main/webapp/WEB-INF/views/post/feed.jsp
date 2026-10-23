@@ -6,6 +6,8 @@
 
 <head>
 <title>Bảng tin - ALOUTE</title>
+<!-- SweetAlert2 CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
 <style>
 .preview-img-wrap {
 	position: relative;
@@ -359,7 +361,7 @@
 		</div>
 	</c:if>
 
-	<!-- KHUNG ĐĂNG BÀI VIẾT (ILIMED ITI ADMIN) -->
+	<!-- KHUNG ĐĂNG BÀI VIẾT (ẨN NẾU LÀ ADMIN) -->
 	<c:if test="${sessionScope.isAdminUser != true}">
 		<div class="card shadow-sm border-0 mb-4 rounded-3">
 			<div class="card-body p-3">
@@ -472,7 +474,7 @@
 									</li>
 								</c:if>
 								
-								<!-- Admin wenno kukuana ti post ket mabalinda a pukawen -->
+								<!-- Admin hoặc chính chủ bài viết có quyền xóa qua SweetAlert2 & AJAX -->
 								<c:if
 									test="${sessionScope.currentUser != null && (sessionScope.currentUser.id == p.user.id || sessionScope.isAdminUser == true)}">
 									<c:if test="${sessionScope.currentUser.id == p.user.id}">
@@ -483,16 +485,11 @@
 										</a></li>
 									</c:if>
 									<li>
-										<form
-											action="${pageContext.request.contextPath}/post/delete/${p.id}"
-											method="post"
-											onsubmit="return confirm('Bạn có chắc chắn muốn xóa bài viết này không?');"
-											class="m-0">
-											<button type="submit"
-												class="dropdown-item py-2 text-danger border-0 bg-transparent w-100 text-start">
-												<i class="bi bi-trash me-2"></i>Xóa bài viết
-											</button>
-										</form>
+										<button type="button" 
+											onclick="handleFeedDeletePost(${p.id})"
+											class="dropdown-item py-2 text-danger border-0 bg-transparent w-100 text-start">
+											<i class="bi bi-trash me-2"></i>Xóa bài viết
+										</button>
 									</li>
 								</c:if>
 							</ul>
@@ -544,7 +541,7 @@
                         </script>
 					</c:if>
 
-					<!-- THANH TƯƠNG TÁC (MAIKAT TI BUTON NO ADMIN) -->
+					<!-- THANH TƯƠNG TÁC (ẨN NÚT NẾU LÀ ADMIN) -->
 					<div class="post-action-bar mt-3">
 						<c:choose>
 							<c:when test="${sessionScope.isAdminUser == true}">
@@ -595,7 +592,7 @@
 												value="${c.user.fullName != null ? c.user.fullName : c.user.username}" />
 										</a>
 
-										<!-- MENU 3 CHẤM BÌNH LUẬN (Admin wenno ti nagsurat ket mabalinda a pukawen) -->
+										<!-- MENU 3 CHẤM BÌNH LUẬN -->
 										<c:if
 											test="${sessionScope.currentUser != null && (sessionScope.currentUser.id == c.user.id || sessionScope.isAdminUser == true)}">
 											<div class="dropdown">
@@ -647,7 +644,7 @@
 						</c:forEach>
 					</div>
 
-					<!-- Ô NHẬP BÌNH LUẬN MỚI (ILIMED ITI ADMIN) -->
+					<!-- Ô NHẬP BÌNH LUẬN MỚI (ẨN NẾU LÀ ADMIN) -->
 					<c:if test="${sessionScope.isAdminUser != true}">
 						<form class="form-comment mt-2 d-flex gap-2" data-post-id="${p.id}">
 							<input type="text"
@@ -791,7 +788,68 @@
 	</button>
 </div>
 
+<!-- Thư viện SweetAlert2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
+    // Cấu hình Toast trượt ở góc phải
+    const FeedToast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true
+    });
+
+    // Hàm xóa bài viết bằng SweetAlert2 & AJAX trên trang Feed
+    function handleFeedDeletePost(postId) {
+        Swal.fire({
+            title: 'Xóa bài viết?',
+            text: 'Bạn có chắc chắn muốn xóa bài viết này không? Thao tác này không thể hoàn tác.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Đồng ý xóa',
+            cancelButtonText: 'Hủy bỏ',
+            reverseButtons: true,
+            customClass: {
+                popup: 'rounded-4 shadow',
+                confirmButton: 'rounded-pill px-3',
+                cancelButton: 'rounded-pill px-3'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch('${pageContext.request.contextPath}/post/api/delete/' + postId, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        const postCard = document.getElementById('post-card-' + postId);
+                        if (postCard) {
+                            postCard.style.transition = 'all 0.4s ease';
+                            postCard.style.opacity = '0';
+                            postCard.style.transform = 'translateY(-15px)';
+                            setTimeout(() => postCard.remove(), 400);
+                        }
+                        FeedToast.fire({
+                            icon: 'success',
+                            title: data.message
+                        });
+                    } else {
+                        Swal.fire('Thất bại', data.message || 'Không thể xóa bài viết!', 'error');
+                    }
+                })
+                .catch(err => {
+                    console.error('Lỗi khi xóa bài viết:', err);
+                    Swal.fire('Lỗi kết nối', 'Không thể kết nối đến máy chủ!', 'error');
+                });
+            }
+        });
+    }
+
     const dt = new DataTransfer();
 
     function addSelectedFiles(input) {
@@ -867,9 +925,15 @@
         .then(res => res.json())
         .then(data => {
             if (data.isSaved) {
-                alert('Đã lưu bài viết vào mục "Đã lưu"!');
+                FeedToast.fire({
+                    icon: 'success',
+                    title: 'Đã lưu bài viết vào mục "Đã lưu"!'
+                });
             } else {
-                alert('Đã bỏ lưu bài viết!');
+                FeedToast.fire({
+                    icon: 'info',
+                    title: 'Đã bỏ lưu bài viết!'
+                });
             }
         })
         .catch(() => alert('Có lỗi xảy ra khi lưu bài viết!'));

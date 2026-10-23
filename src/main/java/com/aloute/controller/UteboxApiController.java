@@ -4,6 +4,7 @@ import com.aloute.dto.ConversationItemDTO;
 import com.aloute.dto.UteboxMessageDTO;
 import com.aloute.entity.User;
 import com.aloute.service.UteboxService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -23,7 +24,18 @@ public class UteboxApiController {
     @Autowired
     private UteboxService uteboxService;
 
-    private User getAuthenticatedUser(HttpSession session) {
+    // Helper trích xuất User: Ưu tiên lấy từ JWT do AuthInterceptor giải mã, dự phòng HttpSession
+    private User getAuthenticatedUser(HttpServletRequest request) {
+        if (request == null) return null;
+
+        // 1. Lấy User từ kết quả giải mã Token JWT trong Interceptor
+        User user = (User) request.getAttribute("currentUser");
+        if (user != null) {
+            return user;
+        }
+
+        // 2. Dự phòng lấy từ Session nếu request nội bộ chưa qua Interceptor
+        HttpSession session = request.getSession(false);
         return (session != null) ? (User) session.getAttribute("currentUser") : null;
     }
 
@@ -34,8 +46,8 @@ public class UteboxApiController {
     }
 
     @GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public ResponseEntity<SseEmitter> subscribe(HttpSession session) {
-        User currentUser = getAuthenticatedUser(session);
+    public ResponseEntity<SseEmitter> subscribe(HttpServletRequest request) {
+        User currentUser = getAuthenticatedUser(request);
         if (currentUser == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         
         // Không đăng ký SSE cho tài khoản Admin
@@ -48,8 +60,8 @@ public class UteboxApiController {
 
     // Endpoint lấy danh sách đoạn chat cho Dropdown Messenger
     @GetMapping("/conversations")
-    public ResponseEntity<?> getConversations(HttpSession session) {
-        User currentUser = getAuthenticatedUser(session);
+    public ResponseEntity<?> getConversations(HttpServletRequest request) {
+        User currentUser = getAuthenticatedUser(request);
         if (currentUser == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 
         // Admin không có hộp thư tin nhắn cá nhân
@@ -62,8 +74,8 @@ public class UteboxApiController {
     }
 
     @GetMapping("/messages")
-    public ResponseEntity<?> getMessages(@RequestParam("partnerId") Long partnerId, HttpSession session) {
-        User currentUser = getAuthenticatedUser(session);
+    public ResponseEntity<?> getMessages(@RequestParam("partnerId") Long partnerId, HttpServletRequest request) {
+        User currentUser = getAuthenticatedUser(request);
         if (currentUser == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Vui lòng đăng nhập!"));
 
         // Chặn Admin đọc tin nhắn riêng tư của người dùng
@@ -86,8 +98,8 @@ public class UteboxApiController {
     public ResponseEntity<?> sendMessage(
             @RequestParam("partnerId") Long partnerId,
             @RequestParam("content") String content,
-            HttpSession session) {
-        User currentUser = getAuthenticatedUser(session);
+            HttpServletRequest request) {
+        User currentUser = getAuthenticatedUser(request);
         if (currentUser == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Vui lòng đăng nhập!"));
 
         // CHẶN ADMIN GỬI TIN NHẮN

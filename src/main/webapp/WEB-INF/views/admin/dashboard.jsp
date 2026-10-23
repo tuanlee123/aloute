@@ -15,6 +15,9 @@
 	rel="stylesheet">
 <link rel="stylesheet"
 	href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+<!-- SweetAlert2 CSS -->
+<link rel="stylesheet"
+	href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
@@ -52,6 +55,12 @@ body {
 				<div class="fw-bold small text-dark">${sessionScope.currentUser.fullName}</div>
 				<small class="text-muted">Quản trị viên</small>
 			</div>
+			<a href="<c:url value='/admin/users'/>" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+				<i class="bi bi-people me-1"></i>Quản lý Users
+			</a>
+			<a href="<c:url value='/admin/posts'/>" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+				<i class="bi bi-file-earmark-post me-1"></i>Quản lý Posts
+			</a>
 			<a href="<c:url value='/post/feed'/>" class="btn btn-sm btn-outline-primary rounded-pill px-3">
 				<i class="bi bi-house-door me-1"></i>Bảng tin
 			</a>
@@ -70,7 +79,7 @@ body {
 					<div class="d-flex justify-content-between align-items-center">
 						<div>
 							<div class="text-white-50 small fw-bold text-uppercase">Tổng Người dùng</div>
-							<h2 class="fw-bold mb-0 mt-1">${totalUsers}</h2>
+							<h2 class="fw-bold mb-0 mt-1" id="stat-total-users">${totalUsers}</h2>
 						</div>
 						<i class="bi bi-people-fill fs-1 text-white-50"></i>
 					</div>
@@ -92,7 +101,7 @@ body {
 					<div class="d-flex justify-content-between align-items-center">
 						<div>
 							<div class="text-black-50 small fw-bold text-uppercase">Tổng bài đăng</div>
-							<h2 class="fw-bold mb-0 mt-1">${totalPosts}</h2>
+							<h2 class="fw-bold mb-0 mt-1" id="stat-total-posts">${totalPosts}</h2>
 						</div>
 						<i class="bi bi-file-earmark-text-fill fs-1 text-black-50"></i>
 					</div>
@@ -185,12 +194,13 @@ body {
 									<td>
 										<c:choose>
 											<c:when test="${!u.active}">
-												<span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2">
+												<span id="status-badge-${u.id}" data-locked="true"
+													class="badge user-status-badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2">
 													<i class="bi bi-slash-circle me-1"></i>Bị khóa
 												</span>
 											</c:when>
 											<c:otherwise>
-												<span id="status-badge-${u.id}"
+												<span id="status-badge-${u.id}" data-locked="false"
 													class="badge user-status-badge ${isUserOnlineNow ? 'bg-success-subtle text-success border-success-subtle' : 'bg-secondary-subtle text-secondary border-secondary-subtle'} border rounded-pill px-2">
 													<i class="bi ${isUserOnlineNow ? 'bi-circle-fill' : 'bi-moon-fill'} me-1 small"></i>
 													${isUserOnlineNow ? 'Trực tuyến' : 'Ngoại tuyến'}
@@ -203,7 +213,7 @@ body {
 									<td class="text-center fw-bold text-success">${u.totalFriends}</td>
 									<td class="text-muted small">${fn:replace(fn:substring(u.createdAt, 0, 16), 'T', ' ')}</td>
 
-									<!-- CỘT THAO TÁC -->
+									<!-- CỘT THAO TÁC (SweetAlert2 & AJAX) -->
 									<td class="text-end pe-4">
 										<div class="d-inline-flex gap-1 align-items-center">
 											<a href="<c:url value='/profile?userId=${u.id}'/>"
@@ -212,16 +222,16 @@ body {
 												<i class="bi bi-eye"></i> Xem
 											</a>
 
-											<form action="<c:url value='/admin/users/${u.id}/toggle-lock'/>"
-												method="post" class="d-inline m-0">
-												<button type="submit"
-													class="btn btn-sm ${u.active ? 'btn-outline-danger' : 'btn-outline-success'} rounded-pill px-2"
-													onclick="return confirm('Xác nhận thay đổi trạng thái tài khoản này?');"
-													title="${u.active ? 'Khóa tài khoản' : 'Mở khóa'}">
-													<i class="bi ${u.active ? 'bi-lock-fill' : 'bi-unlock-fill'}"></i>
-													${u.active ? 'Khóa' : 'Mở'}
-												</button>
-											</form>
+											<button type="button"
+												id="btn-lock-${u.id}"
+												data-active="${u.active}"
+												data-name="<c:out value='${u.fullName}'/>"
+												onclick="handleDashboardToggleLock(${u.id})"
+												class="btn btn-sm ${u.active ? 'btn-outline-danger' : 'btn-outline-success'} rounded-pill px-2"
+												title="${u.active ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}">
+												<i class="bi ${u.active ? 'bi-lock-fill' : 'bi-unlock-fill'}"></i>
+												<span id="btn-lock-text-${u.id}">${u.active ? 'Khóa' : 'Mở'}</span>
+											</button>
 										</div>
 									</td>
 								</tr>
@@ -233,8 +243,91 @@ body {
 		</div>
 	</div>
 
-	<!-- Script Chart.js & Đồng bộ trạng thái Realtime -->
+	<!-- SweetAlert2 JS -->
+	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+	<!-- Script Chart.js, Đồng bộ trạng thái Realtime & AJAX Toggle Lock -->
 	<script>
+    // Toast notification góc trên bên phải
+    const Toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true
+    });
+
+    // Hàm gọi SweetAlert2 và AJAX để khóa/mở tài khoản trên Dashboard
+    function handleDashboardToggleLock(userId) {
+        const btn = document.getElementById('btn-lock-' + userId);
+        const btnText = document.getElementById('btn-lock-text-' + userId);
+        const currentActive = btn.getAttribute('data-active') === 'true';
+        const userName = btn.getAttribute('data-name');
+        const actionText = currentActive ? 'khóa' : 'mở khóa';
+
+        Swal.fire({
+            title: 'Xác nhận thay đổi',
+            html: `Bạn có chắc chắn muốn <b>` + actionText + `</b> tài khoản <strong>` + userName + `</strong>?`,
+            icon: currentActive ? 'warning' : 'question',
+            showCancelButton: true,
+            confirmButtonColor: currentActive ? '#dc3545' : '#198754',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: currentActive ? 'Khóa tài khoản' : 'Mở khóa',
+            cancelButtonText: 'Hủy bỏ',
+            reverseButtons: true,
+            customClass: {
+                popup: 'rounded-4 shadow',
+                confirmButton: 'rounded-pill px-3',
+                cancelButton: 'rounded-pill px-3'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch('${pageContext.request.contextPath}/admin/api/users/' + userId + '/toggle-lock', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        const badge = document.getElementById('status-badge-' + userId);
+                        btn.setAttribute('data-active', data.active);
+
+                        if (data.active) {
+                            // Mở khóa: Cập nhật cờ và trả về trạng thái Ngoại tuyến
+                            badge.setAttribute('data-locked', 'false');
+                            badge.className = 'badge user-status-badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill px-2';
+                            badge.innerHTML = '<i class="bi bi-moon-fill me-1 small"></i>Ngoại tuyến';
+
+                            btn.className = 'btn btn-sm btn-outline-danger rounded-pill px-2';
+                            btn.title = 'Khóa tài khoản';
+                            btn.innerHTML = '<i class="bi bi-lock-fill"></i> <span id="btn-lock-text-' + userId + '">Khóa</span>';
+                        } else {
+                            // Khóa: Đánh dấu cờ data-locked="true" để không bị script realtime ghi đè
+                            badge.setAttribute('data-locked', 'true');
+                            badge.className = 'badge user-status-badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2';
+                            badge.innerHTML = '<i class="bi bi-slash-circle me-1"></i>Bị khóa';
+
+                            btn.className = 'btn btn-sm btn-outline-success rounded-pill px-2';
+                            btn.title = 'Mở khóa tài khoản';
+                            btn.innerHTML = '<i class="bi bi-unlock-fill"></i> <span id="btn-lock-text-' + userId + '">Mở</span>';
+                        }
+
+                        Toast.fire({
+                            icon: 'success',
+                            title: data.message
+                        });
+                    } else {
+                        Swal.fire('Lỗi', data.message || 'Không thể thay đổi trạng thái!', 'error');
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    Swal.fire('Lỗi kết nối', 'Không thể kết nối đến máy chủ!', 'error');
+                });
+            }
+        });
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
         const ctx = document.getElementById('realtimeChart').getContext('2d');
         const maxPoints = 15;
@@ -287,12 +380,23 @@ body {
                     if (activeCard && data.activeCount !== undefined) {
                         activeCard.innerText = data.activeCount;
                     }
+                    const totalUsersCard = document.getElementById('stat-total-users');
+                    if (totalUsersCard && data.totalUsers !== undefined) {
+                        totalUsersCard.innerText = data.totalUsers;
+                    }
+                    const totalPostsCard = document.getElementById('stat-total-posts');
+                    if (totalPostsCard && data.totalPosts !== undefined) {
+                        totalPostsCard.innerText = data.totalPosts;
+                    }
 
-                    // 3. Đồng bộ đổi màu huy hiệu Trực tuyến / Ngoại tuyến ngay lập tức trong bảng
+                    // 3. Đồng bộ đổi màu huy hiệu Trực tuyến / Ngoại tuyến (bỏ qua các tài khoản đã bị khóa)
                     if (data.onlineUserIds) {
                         const onlineSet = new Set(data.onlineUserIds.map(Number));
 
                         document.querySelectorAll('.user-status-badge').forEach(badge => {
+                            if (badge.getAttribute('data-locked') === 'true') {
+                                return; // Nếu tài khoản đang bị khóa thì giữ nguyên huy hiệu đỏ
+                            }
                             const rawId = badge.id.replace('status-badge-', '');
                             const userId = Number(rawId);
 
