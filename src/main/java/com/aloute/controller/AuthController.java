@@ -8,6 +8,7 @@ import com.aloute.dto.UpdateProfileDTO;
 import com.aloute.dto.VerifyOtpDTO;
 import com.aloute.entity.Post;
 import com.aloute.entity.User;
+import com.aloute.jwt.JwtUtils;
 import com.aloute.listener.ActiveUserListener;
 import com.aloute.repository.PostRepository;
 import com.aloute.repository.UserRepository;
@@ -35,6 +36,7 @@ public class AuthController {
 	private final PostRepository postRepository;
 	private final UserRepository userRepository;
 	private final FriendshipService friendshipService;
+	private final JwtUtils jwtUtils;
 
 	// --- 1. ĐĂNG KÝ ---
 	@GetMapping("/register")
@@ -89,7 +91,7 @@ public class AuthController {
 		}
 	}
 
-	// --- 3. ĐĂNG NHẬP ---
+	// --- 3. ĐĂNG NHẬP (TÍCH HỢP SINH JWT TOKEN) ---
 	@GetMapping("/login")
 	public String showLoginForm(Model model, HttpSession session) {
 		if (session != null && session.getAttribute("currentUser") != null) {
@@ -101,15 +103,22 @@ public class AuthController {
 	}
 
 	@PostMapping("/login")
-	public String processLogin(@ModelAttribute("loginDTO") LoginDTO dto, HttpSession session, Model model) {
+	public String processLogin(@ModelAttribute("loginDTO") LoginDTO dto, 
+	                           HttpSession session, 
+	                           HttpServletResponse response, 
+	                           Model model) {
 		try {
 			User user = authService.login(dto);
 
-			// Kiểm tra quyền ROLE_ADMIN
+			// 1. Sinh mã JWT và gửi về trình duyệt qua Cookie HTTP-Only
+			String token = jwtUtils.generateToken(user);
+			jwtUtils.addJwtCookie(response, token);
+
+			// 2. Kiểm tra quyền ROLE_ADMIN
 			boolean isAdmin = user.getRoles() != null && user.getRoles().stream()
 					.anyMatch(r -> "ROLE_ADMIN".equalsIgnoreCase(r.getName()));
 
-			// Lưu thông tin người dùng và cờ quyền vào Session
+			// 3. Lưu thông tin người dùng và cờ quyền vào Session hỗ trợ render JSP
 			session.setAttribute("currentUser", user);
 			session.setAttribute("isAdminUser", isAdmin);
 
@@ -124,7 +133,7 @@ public class AuthController {
 		}
 	}
 
-	// --- 4. ĐĂNG XUẤT (GỠ BỎ ONLINE TỨC THÌ) ---
+	// --- 4. ĐĂNG XUẤT (GỠ BỎ ONLINE & HỦY JWT COOKIE) ---
 	@GetMapping("/logout")
 	public String logout(HttpServletRequest request, HttpServletResponse response) {
 		HttpSession session = request.getSession(false);
@@ -141,11 +150,15 @@ public class AuthController {
 			session.invalidate();
 		}
 
+		// Xóa Cookie JSESSIONID truyền thống
 		Cookie cookie = new Cookie("JSESSIONID", null);
 		cookie.setPath(request.getContextPath().isEmpty() ? "/" : request.getContextPath());
 		cookie.setHttpOnly(true);
 		cookie.setMaxAge(0);
 		response.addCookie(cookie);
+
+		// Xóa Cookie chứa JWT
+		jwtUtils.deleteJwtCookie(response);
 
 		response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
 		response.setHeader("Pragma", "no-cache");
